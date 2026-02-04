@@ -23,9 +23,17 @@ pub fn validate_solana_address(addr: &str) -> Result<(), String> {
 
 /// Validate password meets minimum requirements.
 pub fn validate_password(password: &str) -> Result<(), String> {
-    if password.len() < 8 {
-        return Err("Password must be at least 8 characters".into());
+    if password.len() < 12 {
+        return Err("Password must be at least 12 characters".into());
     }
+
+    let has_letter = password.chars().any(|c| c.is_alphabetic());
+    let has_digit = password.chars().any(|c| c.is_numeric());
+
+    if !has_letter || !has_digit {
+        return Err("Password must contain both letters and numbers".into());
+    }
+
     Ok(())
 }
 

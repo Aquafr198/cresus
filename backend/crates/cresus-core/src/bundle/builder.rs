@@ -108,14 +108,10 @@ pub async fn execute_launch(
 
     // Get RPC client
     let (client, _) = rpc.get_client().await?;
-    let client = Arc::new(client);
-    let recent_blockhash = {
-        let c = client.clone();
-        tokio::task::spawn_blocking(move || c.get_latest_blockhash())
-            .await
-            .map_err(|e| BundleError::Other(format!("spawn_blocking join: {}", e)))?
-            .map_err(|e| BundleError::Other(e.to_string()))?
-    };
+    let recent_blockhash = client
+        .get_latest_blockhash()
+        .await
+        .map_err(|e| BundleError::Other(e.to_string()))?;
 
     let token_mint: Pubkey = config.token_mint.parse()
         .map_err(|e| BundleError::Other(format!("Invalid mint: {}", e)))?;
@@ -125,13 +121,9 @@ pub async fn execute_launch(
     // TX 1: Create OpenBook Market
     // ═══════════════════════════════════════════════════════════
     let market_accounts = MarketAccounts::generate();
-    let rent = {
-        let c = client.clone();
-        tokio::task::spawn_blocking(move || MarketRentLamports::calculate(&c))
-            .await
-            .map_err(|e| BundleError::Other(format!("spawn_blocking join: {}", e)))?
-            .map_err(|e| BundleError::Other(e))?
-    };
+    let rent = MarketRentLamports::calculate(&client)
+        .await
+        .map_err(|e| BundleError::Other(e))?;
 
     let market_params = CreateMarketParams {
         base_mint: token_mint,
@@ -233,7 +225,7 @@ pub async fn execute_launch(
     // ═══════════════════════════════════════════════════════════
     // TX 3-N: Snipe Buys
     // ═══════════════════════════════════════════════════════════
-    let (vault_signer_nonce, vault_signer) = market::find_vault_signer_nonce(&market_pubkey)
+    let (_vault_signer_nonce, vault_signer) = market::find_vault_signer_nonce(&market_pubkey)
         .map_err(|e| BundleError::Other(e))?;
 
     let swap_accounts = SwapAccounts {

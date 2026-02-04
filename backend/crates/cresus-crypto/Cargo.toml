@@ -10,3 +10,4 @@ zeroize = "1.7"
 rand = "0.8"
 serde.workspace = true
 thiserror.workspace = true
+bip39 = "2.0"

@@ -69,18 +69,12 @@ pub async fn create_token(
     let mint_pubkey = mint_keypair.pubkey();
 
     let (client, _) = rpc.get_client().await?;
-    let client = Arc::new(client);
 
     // Calculate rent for mint account
-    let mint_rent = {
-        let c = client.clone();
-        tokio::task::spawn_blocking(move || {
-            c.get_minimum_balance_for_rent_exemption(MINT_ACCOUNT_LEN)
-        })
+    let mint_rent = client
+        .get_minimum_balance_for_rent_exemption(MINT_ACCOUNT_LEN)
         .await
-        .map_err(|e| MintError::Other(format!("spawn_blocking join: {}", e)))?
-        .map_err(|e| MintError::Other(e.to_string()))?
-    };
+        .map_err(|e| MintError::Other(e.to_string()))?;
 
     // Build instructions
     let mut instructions = vec![
@@ -135,13 +129,9 @@ pub async fn create_token(
         let payer_ref = &payer;
         let mint_ref = &mint_keypair;
         async move {
-            let blockhash = tokio::task::spawn_blocking({
-                let c2 = c.clone();
-                move || c2.get_latest_blockhash()
-            })
-            .await
-            .map_err(|e| MintError::Other(format!("spawn_blocking join: {}", e)))?
-            .map_err(|e| MintError::Other(e.to_string()))?;
+            let blockhash = c.get_latest_blockhash()
+                .await
+                .map_err(|e| MintError::Other(e.to_string()))?;
 
             let tx = Transaction::new_signed_with_payer(
                 &ixs,
@@ -150,13 +140,9 @@ pub async fn create_token(
                 blockhash,
             );
 
-            tokio::task::spawn_blocking({
-                let c2 = c.clone();
-                move || c2.send_and_confirm_transaction(&tx)
-            })
-            .await
-            .map_err(|e| MintError::Other(format!("spawn_blocking join: {}", e)))?
-            .map_err(|e| MintError::Other(e.to_string()))
+            c.send_and_confirm_transaction(&tx)
+                .await
+                .map_err(|e| MintError::Other(e.to_string()))
         }
     })
     .await?;

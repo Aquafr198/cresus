@@ -7,3 +7,5 @@ pub mod config_repo;
 pub mod rpc_repo;
 pub mod distribution_repo;
 pub mod profile_repo;
+pub mod dlq_repo;
+pub mod audit_repo;

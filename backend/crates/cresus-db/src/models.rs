@@ -144,3 +144,33 @@ pub struct AppConfig {
     pub key: String,
     pub value: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeadLetterTransaction {
+    pub id: String,
+    pub source: String,
+    pub source_id: Option<String>,
+    pub wallet_id: String,
+    pub tx_type: String,
+    pub payload_json: String,
+    pub error_message: String,
+    pub error_category: String,
+    pub retry_count: i64,
+    pub max_retries: i64,
+    pub last_attempt_at: i64,
+    pub next_retry_at: Option<i64>,
+    pub resolved_at: Option<i64>,
+    pub tx_signature: Option<String>,
+    pub status: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditEntry {
+    pub id: i64,
+    pub action: String,
+    pub detail: String,
+    pub wallet_id: Option<String>,
+    pub tx_signature: Option<String>,
+    pub created_at: i64,
+}

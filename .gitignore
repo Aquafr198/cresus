@@ -11,11 +11,20 @@ frontend/out/
 .env
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
 
 # Database
 data/*.db
 data/*.db-wal
 data/*.db-shm
+data/backups/
+backend/data/
+*.db-journal
+
+# Logs
+*.log
+logs/
 
 # IDE
 .vscode/

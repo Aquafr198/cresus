@@ -1,4 +1,4 @@
-use solana_client::rpc_client::RpcClient;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 
 use super::metadata::find_metadata_pda;
@@ -14,7 +14,7 @@ pub struct TokenInfo {
 }
 
 /// Fetch on-chain token info (mint data + metadata) for cloning.
-pub fn fetch_token_info(client: &RpcClient, mint_address: &str) -> Result<TokenInfo, String> {
+pub async fn fetch_token_info(client: &RpcClient, mint_address: &str) -> Result<TokenInfo, String> {
     let mint_pubkey: Pubkey = mint_address
         .parse()
         .map_err(|e| format!("Invalid mint address: {}", e))?;
@@ -22,6 +22,7 @@ pub fn fetch_token_info(client: &RpcClient, mint_address: &str) -> Result<TokenI
     // Fetch mint account to get decimals and supply
     let mint_data = client
         .get_account(&mint_pubkey)
+        .await
         .map_err(|e| format!("Failed to fetch mint account: {}", e))?;
 
     if mint_data.data.len() < 82 {
@@ -40,6 +41,7 @@ pub fn fetch_token_info(client: &RpcClient, mint_address: &str) -> Result<TokenI
     let metadata_pda = find_metadata_pda(&mint_pubkey);
     let metadata_account = client
         .get_account(&metadata_pda)
+        .await
         .map_err(|e| format!("Failed to fetch metadata: {}", e))?;
 
     // Parse metadata account data (simplified — extract name, symbol, uri)

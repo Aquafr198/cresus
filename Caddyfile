@@ -1,0 +1,57 @@
+# Cresus Production Reverse Proxy
+# Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
+#
+# Usage:
+#   1. Install Caddy: https://caddyserver.com/docs/install
+#   2. Replace "cresus.yourdomain.com" with your actual domain
+#   3. Run: caddy run --config Caddyfile
+#
+# For local development with self-signed cert:
+#   caddy run --config Caddyfile --adapter caddyfile
+
+cresus.yourdomain.com {
+	# TLS is automatic — Caddy handles Let's Encrypt certificates
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Frontend (Next.js on port 3000)
+	handle {
+		reverse_proxy localhost:3000
+	}
+
+	# Backend API
+	handle /api/* {
+		reverse_proxy localhost:3001
+	}
+
+	# WebSocket for monitor
+	handle /ws/* {
+		reverse_proxy localhost:3001
+	}
+
+	# Rate limit at the edge — 60 requests per minute per IP
+	# (backend has its own finer-grained limits too)
+	rate_limit {
+		zone global {
+			key {remote_host}
+			events 60
+			window 1m
+		}
+	}
+
+	# Access log
+	log {
+		output file /var/log/caddy/cresus-access.log {
+			roll_size 50mb
+			roll_keep 10
+		}
+	}
+}

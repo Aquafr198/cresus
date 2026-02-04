@@ -20,18 +20,19 @@ fn to_response(w: &cresus_db::models::Wallet) -> WalletResponse {
     }
 }
 
-/// POST /api/v1/auth/setup — First-time password setup.
+/// POST /api/v1/auth/setup — First-time password setup (returns seed phrase).
 pub async fn setup_password(
     State(mgr): State<WalletManager>,
     Json(body): Json<SetupPasswordRequest>,
 ) -> Result<Response, AppError> {
-    if body.password.len() < 8 {
-        return Err(AppError::bad_request(
-            "Password must be at least 8 characters",
-        ));
-    }
-    mgr.setup_password(&body.password).await?;
-    Ok(Json(json!({ "success": true })).into_response())
+    crate::validation::validate_password(&body.password)
+        .map_err(|e| AppError::bad_request(&e))?;
+
+    let mnemonic = mgr.setup_password(&body.password).await?;
+    Ok(Json(json!({
+        "success": true,
+        "data": { "mnemonic": mnemonic }
+    })).into_response())
 }
 
 /// POST /api/v1/auth/unlock — Unlock with password.
@@ -39,8 +40,14 @@ pub async fn unlock(
     State(mgr): State<WalletManager>,
     Json(body): Json<UnlockRequest>,
 ) -> Result<Response, AppError> {
-    mgr.unlock(&body.password).await?;
-    Ok(Json(json!({ "success": true })).into_response())
+    crate::metrics::inc_unlock_attempt();
+    match mgr.unlock(&body.password).await {
+        Ok(()) => Ok(Json(json!({ "success": true })).into_response()),
+        Err(e) => {
+            crate::metrics::inc_unlock_failure();
+            Err(e.into())
+        }
+    }
 }
 
 /// POST /api/v1/auth/lock — Lock the app.
@@ -122,11 +129,9 @@ pub async fn export_wallet(
     Path(id): Path<String>,
     Json(body): Json<ExportWalletRequest>,
 ) -> Result<Response, AppError> {
-    if body.export_password.len() < 8 {
-        return Err(AppError::bad_request(
-            "Export password must be at least 8 characters",
-        ));
-    }
+    crate::validation::validate_password(&body.export_password)
+        .map_err(|e| AppError::bad_request(&format!("Export password invalid: {}", e)))?;
+
     let encrypted_export = mgr.export_secret_key(&id, &body.export_password).await?;
     Ok(Json(json!({ "success": true, "data": { "encrypted_key": encrypted_export } }))
         .into_response())
@@ -154,4 +159,77 @@ pub async fn list_groups(
         .map(|g| json!({ "id": g.id, "name": g.name, "created_at": g.created_at }))
         .collect();
     Ok(Json(json!({ "success": true, "data": data })).into_response())
+}
+
+/// GET /api/v1/wallets/{id}/balance — Get wallet balance (SOL + tokens).
+pub async fn get_wallet_balance(
+    State((mgr, rpc_mgr)): State<(WalletManager, cresus_core::rpc::manager::RpcManager)>,
+    Path(id): Path<String>,
+) -> Result<Response, AppError> {
+    let (rpc_client, _) = rpc_mgr.get_client().await
+        .map_err(|e| AppError::internal(&format!("RPC error: {}", e)))?;
+
+    let balance = mgr.get_wallet_balance(&id, &rpc_client).await?;
+    Ok(Json(json!({ "success": true, "data": balance })).into_response())
+}
+
+/// POST /api/v1/wallets/{id}/send — Send SOL or tokens from wallet.
+pub async fn send_from_wallet(
+    State((mgr, rpc_mgr)): State<(WalletManager, cresus_core::rpc::manager::RpcManager)>,
+    Path(id): Path<String>,
+    Json(body): Json<SendTransactionRequest>,
+) -> Result<Response, AppError> {
+    // Validate recipient address
+    crate::validation::validate_solana_address(&body.to_address)
+        .map_err(|e| AppError::bad_request(&format!("Invalid recipient address: {}", e)))?;
+
+    // Validate mint address if sending tokens
+    if let Some(ref mint) = body.mint_address {
+        crate::validation::validate_solana_address(mint)
+            .map_err(|e| AppError::bad_request(&format!("Invalid mint address: {}", e)))?;
+    }
+
+    // Validate amount is not zero
+    if body.amount == 0 {
+        return Err(AppError::bad_request("Amount must be greater than zero"));
+    }
+
+    let (rpc_client, _) = rpc_mgr.get_client().await
+        .map_err(|e| AppError::internal(&format!("RPC error: {}", e)))?;
+
+    let signature = if let Some(mint) = body.mint_address {
+        // Send tokens
+        mgr.send_token_from_wallet(&id, &body.to_address, &mint, body.amount, &rpc_client).await?
+    } else {
+        // Send SOL
+        mgr.send_sol_from_wallet(&id, &body.to_address, body.amount, &rpc_client).await?
+    };
+
+    Ok(Json(json!({
+        "success": true,
+        "data": { "signature": signature }
+    })).into_response())
+}
+
+/// GET /api/v1/auth/seed-phrase — Get the seed phrase (requires unlock).
+pub async fn get_seed_phrase(
+    State(mgr): State<WalletManager>,
+) -> Result<Response, AppError> {
+    let mnemonic = mgr.get_seed_phrase().await?;
+    Ok(Json(json!({
+        "success": true,
+        "data": { "mnemonic": mnemonic }
+    })).into_response())
+}
+
+/// POST /api/v1/auth/restore — Restore from seed phrase.
+pub async fn restore_from_seed(
+    State(mgr): State<WalletManager>,
+    Json(body): Json<RestoreFromSeedRequest>,
+) -> Result<Response, AppError> {
+    crate::validation::validate_password(&body.password)
+        .map_err(|e| AppError::bad_request(&e))?;
+
+    mgr.restore_from_seed_phrase(&body.mnemonic, &body.password).await?;
+    Ok(Json(json!({ "success": true })).into_response())
 }

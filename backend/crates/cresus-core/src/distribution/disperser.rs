@@ -227,10 +227,10 @@ async fn execute_single_transfer(
     mek: &SecretBytes,
     transfer: &DistributionTransfer,
 ) -> Result<String, DistributionError> {
-    // Get sender keypair
+    // Get sender keypair (from_wallet_id)
     let sender_keypair = decrypt_wallet_keypair(db, &transfer.from_wallet_id, mek).await?;
 
-    // Get receiver public key
+    // Get receiver public key (to_wallet_id)
     let receiver = WalletRepo::get_by_id(db, transfer.to_wallet_id.clone())
         .await?
         .ok_or_else(|| DistributionError::WalletNotFound(transfer.to_wallet_id.clone()))?;
@@ -239,14 +239,10 @@ async fn execute_single_transfer(
 
     // Build and send transfer
     let (client, _) = rpc.get_client().await?;
-    let client = Arc::new(client);
-    let blockhash = {
-        let c = client.clone();
-        tokio::task::spawn_blocking(move || c.get_latest_blockhash())
-            .await
-            .map_err(|e| DistributionError::Other(format!("spawn_blocking join: {}", e)))?
-            .map_err(|e| DistributionError::Other(e.to_string()))?
-    };
+    let blockhash = client
+        .get_latest_blockhash()
+        .await
+        .map_err(|e| DistributionError::Other(e.to_string()))?;
 
     let lamports = u64::try_from(transfer.amount_lamports)
         .map_err(|_| DistributionError::Other("Negative amount_lamports in transfer".into()))?;
@@ -263,14 +259,195 @@ async fn execute_single_transfer(
         blockhash,
     );
 
-    let sig = {
-        let c = client.clone();
-        tokio::task::spawn_blocking(move || c.send_and_confirm_transaction(&tx))
-            .await
-            .map_err(|e| DistributionError::Other(format!("spawn_blocking join: {}", e)))?
-            .map_err(|e| DistributionError::Other(e.to_string()))?
-    };
+    let sig = client
+        .send_and_confirm_transaction(&tx)
+        .await
+        .map_err(|e| DistributionError::Other(e.to_string()))?;
 
     Ok(sig.to_string())
+}
+
+/// Resume stalled distributions that have been running for too long.
+///
+/// This function finds distributions that are stuck in "running" or "executing" status
+/// and resumes them by:
+/// 1. Checking if all transfers are complete -> mark distribution as completed
+/// 2. If transfers are still pending -> resume execution
+pub async fn resume_stalled_distributions(
+    db: &Arc<Connection>,
+    rpc: &RpcManager,
+    master_key: &Arc<RwLock<Option<SecretBytes>>>,
+    stall_seconds: i64,
+) -> Result<(), DistributionError> {
+    let stalled = DistributionRepo::find_stalled(db, stall_seconds).await?;
+
+    if stalled.is_empty() {
+        tracing::debug!("No stalled distributions found");
+        return Ok(());
+    }
+
+    tracing::info!(
+        count = stalled.len(),
+        stall_seconds = stall_seconds,
+        "Found stalled distributions, attempting to resume"
+    );
+
+    for dist in stalled {
+        tracing::info!(
+            distribution_id = %dist.id,
+            status = %dist.status,
+            created_at = dist.created_at,
+            "Resuming stalled distribution"
+        );
+
+        // Check pending transfers
+        let pending_transfers = DistributionRepo::find_pending_transfers(db, dist.id.clone()).await?;
+
+        if pending_transfers.is_empty() {
+            // All transfers complete, mark distribution as completed
+            tracing::info!(
+                distribution_id = %dist.id,
+                "All transfers complete, marking distribution as completed"
+            );
+
+            let all_transfers = DistributionRepo::list_transfers(db, dist.id.clone()).await?;
+            let completed = all_transfers.iter().filter(|t| t.status == "completed").count();
+            let failed = all_transfers.iter().filter(|t| t.status == "failed").count();
+
+            let final_status = if failed == 0 {
+                "completed"
+            } else if completed == 0 {
+                "failed"
+            } else {
+                "partial"
+            };
+
+            let result_json = serde_json::to_string(&serde_json::json!({
+                "completed": completed,
+                "failed": failed,
+                "total": all_transfers.len(),
+                "resumed": true,
+            })).ok();
+
+            DistributionRepo::update_status(
+                db,
+                dist.id.clone(),
+                final_status.to_string(),
+                if failed > 0 { Some(format!("{} transfers failed", failed)) } else { None },
+                result_json,
+                Some(chrono::Utc::now().timestamp()),
+            ).await?;
+        } else {
+            // Resume execution of pending transfers
+            tracing::info!(
+                distribution_id = %dist.id,
+                pending_count = pending_transfers.len(),
+                "Resuming execution of pending transfers"
+            );
+
+            match execute_remaining_transfers(db, rpc, master_key, &dist, &pending_transfers).await {
+                Ok(()) => {
+                    tracing::info!(
+                        distribution_id = %dist.id,
+                        "Successfully resumed and completed distribution"
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        distribution_id = %dist.id,
+                        error = %e,
+                        "Failed to resume distribution"
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Execute the remaining pending transfers for a distribution.
+async fn execute_remaining_transfers(
+    db: &Arc<Connection>,
+    rpc: &RpcManager,
+    master_key: &Arc<RwLock<Option<SecretBytes>>>,
+    dist: &Distribution,
+    pending_transfers: &[DistributionTransfer],
+) -> Result<(), DistributionError> {
+    let mek = master_key
+        .read()
+        .await
+        .clone()
+        .ok_or(DistributionError::Locked)?;
+
+    for transfer in pending_transfers {
+        // Execute the transfer with retry
+        match crate::rpc::retry::with_retry(3, 1000, || {
+            execute_single_transfer(db, rpc, &mek, transfer)
+        }).await {
+            Ok(sig) => {
+                tracing::info!(
+                    transfer_id = %transfer.id,
+                    signature = %sig,
+                    "Transfer completed successfully"
+                );
+
+                DistributionRepo::update_transfer_status(
+                    db,
+                    transfer.id.clone(),
+                    "completed".to_string(),
+                    Some(sig),
+                    None,
+                    Some(chrono::Utc::now().timestamp()),
+                ).await?;
+            }
+            Err(e) => {
+                tracing::error!(
+                    transfer_id = %transfer.id,
+                    error = %e,
+                    "Transfer failed"
+                );
+                DistributionRepo::update_transfer_status(
+                    db,
+                    transfer.id.clone(),
+                    "failed".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Some(chrono::Utc::now().timestamp()),
+                ).await?;
+            }
+        }
+    }
+
+    // Update distribution final status
+    let all_transfers = DistributionRepo::list_transfers(db, dist.id.clone()).await?;
+    let total_completed = all_transfers.iter().filter(|t| t.status == "completed").count();
+    let total_failed = all_transfers.iter().filter(|t| t.status == "failed").count();
+
+    let final_status = if total_failed == 0 {
+        "completed"
+    } else if total_completed == 0 {
+        "failed"
+    } else {
+        "partial"
+    };
+
+    let result_json = serde_json::to_string(&serde_json::json!({
+        "completed": total_completed,
+        "failed": total_failed,
+        "total": all_transfers.len(),
+        "resumed": true,
+    })).ok();
+
+    DistributionRepo::update_status(
+        db,
+        dist.id.clone(),
+        final_status.to_string(),
+        if total_failed > 0 { Some(format!("{} transfers failed", total_failed)) } else { None },
+        result_json,
+        Some(chrono::Utc::now().timestamp()),
+    ).await?;
+
+    Ok(())
 }
 

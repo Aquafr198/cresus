@@ -10,7 +10,25 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: inherit;
+}
+
+/* Custom scrollbar for sidebar and overflow areas */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 @keyframes slide-in {
@@ -24,6 +42,96 @@ body {
   }
 }
 
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Landing page — animated liquid gradient text */
+@keyframes liquid-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 80%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 20%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.landing-liquid-text {
+  background-image: linear-gradient(
+    130deg,
+    #60a5fa 0%,
+    #93c5fd 15%,
+    #3b82f6 30%,
+    #a5b4fc 45%,
+    #60a5fa 55%,
+    #38bdf8 70%,
+    #818cf8 85%,
+    #60a5fa 100%
+  );
+  background-size: 300% 300%;
+  animation: liquid-flow 6s ease-in-out infinite;
+}
+
+/* Landing page — blue diagonal light rays */
+.landing-rays {
+  background:
+    linear-gradient(
+      115deg,
+      transparent 20%,
+      rgba(59, 130, 246, 0.06) 30%,
+      rgba(59, 130, 246, 0.12) 38%,
+      rgba(99, 155, 255, 0.08) 42%,
+      transparent 50%,
+      transparent 55%,
+      rgba(59, 130, 246, 0.05) 60%,
+      rgba(59, 130, 246, 0.10) 66%,
+      rgba(99, 155, 255, 0.06) 70%,
+      transparent 78%
+    ),
+    linear-gradient(
+      135deg,
+      transparent 25%,
+      rgba(99, 102, 241, 0.04) 35%,
+      rgba(99, 102, 241, 0.08) 45%,
+      transparent 55%
+    );
 }

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::sync::{Mutex, RwLock};
 use axum::{
@@ -15,14 +16,25 @@ use cresus_crypto::SecretBytes;
 /// Shared state for the auth middleware — just the master key lock.
 pub type MasterKeyState = Arc<RwLock<Option<SecretBytes>>>;
 
+/// Tracks the last authenticated activity (epoch seconds).
+/// Updated by `require_unlocked` on every successful request.
+pub static LAST_ACTIVITY: AtomicU64 = AtomicU64::new(0);
+
 /// Middleware that rejects requests with 403 if the app is locked.
 /// Applied to all routes except /auth/*, /health, and /stats.
+/// Also updates the last-activity timestamp for auto-lock.
 pub async fn require_unlocked(
     State(mk): State<MasterKeyState>,
     request: Request<Body>,
     next: Next,
 ) -> Response {
     if mk.read().await.is_some() {
+        // Update last-activity timestamp
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        LAST_ACTIVITY.store(now, Ordering::Relaxed);
         next.run(request).await
     } else {
         (

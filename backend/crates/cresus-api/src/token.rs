@@ -76,7 +76,7 @@ pub async fn clone_info(
     let (client, _ep) = state.rpc.get_client().await
         .map_err(|e| AppError::internal(e.to_string()))?;
 
-    match clone::fetch_token_info(&client, &body.mint_address) {
+    match clone::fetch_token_info(&client, &body.mint_address).await {
         Ok(info) => Ok(Json(json!({ "success": true, "data": info })).into_response()),
         Err(e) => Err(AppError::bad_request(e)),
     }

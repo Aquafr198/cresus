@@ -171,18 +171,19 @@ pub struct MarketRentLamports {
 
 impl MarketRentLamports {
     /// Calculate from RPC client.
-    pub fn calculate(client: &solana_client::rpc_client::RpcClient) -> Result<Self, String> {
-        let calc = |size: u64| -> Result<u64, String> {
+    pub async fn calculate(client: &solana_client::nonblocking::rpc_client::RpcClient) -> Result<Self, String> {
+        let calc = |size: u64| async move {
             client.get_minimum_balance_for_rent_exemption(size as usize)
+                .await
                 .map_err(|e| e.to_string())
         };
         Ok(Self {
-            market: calc(MARKET_STATE_LEN)?,
-            request_queue: calc(REQUEST_QUEUE_LEN)?,
-            event_queue: calc(EVENT_QUEUE_LEN)?,
-            bids: calc(BIDS_LEN)?,
-            asks: calc(ASKS_LEN)?,
-            vault: calc(165)?, // SPL Token Account
+            market: calc(MARKET_STATE_LEN).await?,
+            request_queue: calc(REQUEST_QUEUE_LEN).await?,
+            event_queue: calc(EVENT_QUEUE_LEN).await?,
+            bids: calc(BIDS_LEN).await?,
+            asks: calc(ASKS_LEN).await?,
+            vault: calc(165).await?, // SPL Token Account
         })
     }
 
@@ -215,7 +216,7 @@ fn serialize_initialize_market(
 }
 
 /// Total rent cost for creating all market accounts.
-pub fn total_market_rent(client: &solana_client::rpc_client::RpcClient) -> Result<u64, String> {
-    let rents = MarketRentLamports::calculate(client)?;
+pub async fn total_market_rent(client: &solana_client::nonblocking::rpc_client::RpcClient) -> Result<u64, String> {
+    let rents = MarketRentLamports::calculate(client).await?;
     Ok(rents.total())
 }

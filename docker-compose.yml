@@ -1,0 +1,85 @@
+version: "3.9"
+
+services:
+  # ── Backend (Rust / Axum) ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cresus-backend
+    restart: unless-stopped
+    volumes:
+      - backend-data:/app/data
+    environment:
+      - CRESUS_HOST=0.0.0.0
+      - CRESUS_PORT=3001
+      - CRESUS_DB_PATH=/app/data/cresus.db
+      - CRESUS_LOG_LEVEL=${CRESUS_LOG_LEVEL:-info}
+      - CRESUS_SOLANA_CLUSTER=${CRESUS_SOLANA_CLUSTER:-devnet}
+      - SOLANA_RPC_MAINNET=${SOLANA_RPC_MAINNET:-https://api.mainnet-beta.solana.com}
+      - SOLANA_RPC_DEVNET=${SOLANA_RPC_DEVNET:-https://api.devnet.solana.com}
+      - PINATA_API_KEY=${PINATA_API_KEY:-}
+      - PINATA_SECRET_KEY=${PINATA_SECRET_KEY:-}
+      - BIRDEYE_API_KEY=${BIRDEYE_API_KEY:-}
+      - JITO_BLOCK_ENGINE_URL=${JITO_BLOCK_ENGINE_URL:-https://mainnet.block-engine.jito.wtf}
+      - JITO_TIP_LAMPORTS=${JITO_TIP_LAMPORTS:-10000}
+      - CORS_ALLOWED_ORIGINS=https://${DOMAIN:-localhost},http://${DOMAIN:-localhost}
+      - DEV_MODE=${DEV_MODE:-false}
+      - CRESUS_PRIORITY_FEE_MICRO_LAMPORTS=${CRESUS_PRIORITY_FEE_MICRO_LAMPORTS:-50000}
+    networks:
+      - cresus-net
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:3001/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Frontend (Next.js) ─────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cresus-frontend
+    restart: unless-stopped
+    environment:
+      - BACKEND_HOST=backend
+      - BACKEND_PORT=3001
+    networks:
+      - cresus-net
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # ── Reverse Proxy (Caddy — auto TLS) ───────────────────────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: cresus-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    networks:
+      - cresus-net
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  backend-data:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+
+networks:
+  cresus-net:
+    driver: bridge

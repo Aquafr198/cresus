@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::str::FromStr;
 use tokio::sync::RwLock;
 use tokio_rusqlite::Connection;
 
@@ -52,20 +53,29 @@ impl WalletManager {
     }
 
     /// First-time setup: set the app password.
-    /// Stores the salt and a verification token encrypted with the derived MEK.
-    pub async fn setup_password(&self, password: &str) -> Result<(), WalletError> {
+    /// Generates a BIP39 seed phrase, stores the salt and encrypted verification token.
+    pub async fn setup_password(&self, password: &str) -> Result<String, WalletError> {
         if self.is_password_set().await? {
             return Err(WalletError::PasswordAlreadySet);
         }
 
+        // Generate a 12-word BIP39 mnemonic
+        let mnemonic = cresus_crypto::generate_mnemonic()?;
+
         let salt = generate_salt();
         let mek = derive_master_key(password, &salt)?;
+
+        // Encrypt the mnemonic with the MEK
+        let encrypted_mnemonic = cresus_crypto::encrypt_mnemonic(&mnemonic, &mek)?;
+        let mnemonic_hex = hex::encode(
+            serde_json::to_vec(&encrypted_mnemonic).map_err(|e| WalletError::Other(e.to_string()))?,
+        );
 
         // Encrypt a known verification token so we can verify the password later
         let verify_token = b"CRESUS_VERIFY_OK";
         let encrypted = cresus_crypto::encrypt(verify_token, &mek)?;
 
-        // Store salt and encrypted verification token in app_config
+        // Store salt, encrypted mnemonic, and encrypted verification token
         let salt_hex = hex::encode(salt);
         let verify_hex = hex::encode(
             serde_json::to_vec(&encrypted).map_err(|e| WalletError::Other(e.to_string()))?,
@@ -73,12 +83,14 @@ impl WalletManager {
 
         ConfigRepo::set(&self.db, "password_salt", &salt_hex).await?;
         ConfigRepo::set(&self.db, "password_verify", &verify_hex).await?;
+        ConfigRepo::set(&self.db, "seed_phrase_encrypted", &mnemonic_hex).await?;
 
         // Unlock with the MEK
         let mut mk = self.master_key.write().await;
         *mk = Some(mek);
 
-        Ok(())
+        // Return the mnemonic so it can be displayed to the user
+        Ok(mnemonic)
     }
 
     /// Unlock the app with the user's password.
@@ -263,5 +275,117 @@ impl WalletManager {
             "nonce": hex::encode(export_payload.nonce),
             "ciphertext": hex::encode(export_payload.ciphertext),
         }))
+    }
+
+    /// Get the balance (SOL + tokens) for a wallet.
+    pub async fn get_wallet_balance(
+        &self,
+        wallet_id: &str,
+        rpc_client: &solana_client::nonblocking::rpc_client::RpcClient,
+    ) -> Result<super::operations::WalletBalance, WalletError> {
+        let wallet = self.get_wallet(wallet_id).await?;
+        let pubkey = solana_sdk::pubkey::Pubkey::from_str(&wallet.public_key)
+            .map_err(|e| WalletError::Other(format!("Invalid pubkey: {}", e)))?;
+
+        super::operations::get_balance(rpc_client, &pubkey)
+            .await
+            .map_err(|e| WalletError::Other(e.to_string()))
+    }
+
+    /// Send SOL from a wallet to another address.
+    pub async fn send_sol_from_wallet(
+        &self,
+        wallet_id: &str,
+        to_address: &str,
+        lamports: u64,
+        rpc_client: &solana_client::nonblocking::rpc_client::RpcClient,
+    ) -> Result<String, WalletError> {
+        let mek = self.require_mek().await?;
+
+        // Decrypt wallet keypair
+        let keypair = super::decrypt::decrypt_wallet_keypair(&self.db, wallet_id, &mek).await
+            .map_err(|e| WalletError::Other(e.to_string()))?;
+
+        super::operations::send_sol(rpc_client, &keypair, to_address, lamports)
+            .await
+            .map_err(|e| WalletError::Other(e.to_string()))
+    }
+
+    /// Send SPL tokens from a wallet to another address.
+    pub async fn send_token_from_wallet(
+        &self,
+        wallet_id: &str,
+        to_address: &str,
+        mint_address: &str,
+        amount: u64,
+        rpc_client: &solana_client::nonblocking::rpc_client::RpcClient,
+    ) -> Result<String, WalletError> {
+        let mek = self.require_mek().await?;
+
+        // Decrypt wallet keypair
+        let keypair = super::decrypt::decrypt_wallet_keypair(&self.db, wallet_id, &mek).await
+            .map_err(|e| WalletError::Other(e.to_string()))?;
+
+        super::operations::send_token(rpc_client, &keypair, to_address, mint_address, amount)
+            .await
+            .map_err(|e| WalletError::Other(e.to_string()))
+    }
+
+    /// Get the seed phrase (requires app to be unlocked).
+    pub async fn get_seed_phrase(&self) -> Result<String, WalletError> {
+        let mek = self.require_mek().await?;
+
+        let mnemonic_hex = ConfigRepo::get(&self.db, "seed_phrase_encrypted")
+            .await?
+            .ok_or_else(|| WalletError::Other("No seed phrase found".to_string()))?;
+
+        let mnemonic_bytes = hex::decode(&mnemonic_hex)
+            .map_err(|e| WalletError::Other(e.to_string()))?;
+        let encrypted: EncryptedPayload = serde_json::from_slice(&mnemonic_bytes)
+            .map_err(|e| WalletError::Other(e.to_string()))?;
+
+        let mnemonic = cresus_crypto::decrypt_mnemonic(&encrypted, &mek)?;
+        Ok(mnemonic)
+    }
+
+    /// Restore from a seed phrase (used for account recovery).
+    /// This replaces the existing encrypted seed phrase with a new one.
+    pub async fn restore_from_seed_phrase(
+        &self,
+        mnemonic: &str,
+        new_password: &str,
+    ) -> Result<(), WalletError> {
+        // Validate the mnemonic
+        cresus_crypto::validate_mnemonic(mnemonic)?;
+
+        // Generate new salt and MEK
+        let salt = generate_salt();
+        let mek = derive_master_key(new_password, &salt)?;
+
+        // Encrypt the mnemonic with the new MEK
+        let encrypted_mnemonic = cresus_crypto::encrypt_mnemonic(mnemonic, &mek)?;
+        let mnemonic_hex = hex::encode(
+            serde_json::to_vec(&encrypted_mnemonic)
+                .map_err(|e| WalletError::Other(e.to_string()))?,
+        );
+
+        // Encrypt verification token
+        let verify_token = b"CRESUS_VERIFY_OK";
+        let encrypted = cresus_crypto::encrypt(verify_token, &mek)?;
+        let verify_hex = hex::encode(
+            serde_json::to_vec(&encrypted).map_err(|e| WalletError::Other(e.to_string()))?,
+        );
+
+        // Store new salt, verification, and seed phrase
+        let salt_hex = hex::encode(salt);
+        ConfigRepo::set(&self.db, "password_salt", &salt_hex).await?;
+        ConfigRepo::set(&self.db, "password_verify", &verify_hex).await?;
+        ConfigRepo::set(&self.db, "seed_phrase_encrypted", &mnemonic_hex).await?;
+
+        // Unlock with the new MEK
+        let mut mk = self.master_key.write().await;
+        *mk = Some(mek);
+
+        Ok(())
     }
 }

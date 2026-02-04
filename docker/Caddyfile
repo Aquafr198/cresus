@@ -1,0 +1,37 @@
+# Cresus Docker Reverse Proxy
+# Replace {$DOMAIN} with your domain via DOMAIN env var in docker-compose.yml
+#
+# For local development: set DOMAIN=localhost in .env
+# For production: set DOMAIN=cresus.yourdomain.com
+
+{$DOMAIN:localhost} {
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# Backend API (matched first — more specific)
+	handle /api/* {
+		reverse_proxy backend:3001
+	}
+
+	# WebSocket for monitor
+	handle /ws/* {
+		reverse_proxy backend:3001
+	}
+
+	# Frontend (Next.js — fallback for everything else)
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	# Access log
+	log {
+		output stdout
+	}
+}

@@ -33,6 +33,9 @@ pub struct LaunchRequest {
     pub base_lot_size: Option<u64>,
     pub quote_lot_size: Option<u64>,
     pub snipe_buys: Vec<SnipeBuyRequest>,
+    /// Must be true to execute on-chain. Prevents accidental launches.
+    #[serde(default)]
+    pub confirmed: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,9 +50,15 @@ pub async fn launch(
     State(state): State<BundleState>,
     Json(body): Json<LaunchRequest>,
 ) -> Result<Response, AppError> {
+    if !body.confirmed {
+        return Err(AppError::bad_request(
+            "This action requires confirmation. Send { \"confirmed\": true } to proceed.",
+        ));
+    }
     if let Err(e) = crate::validation::validate_solana_address(&body.token_mint) {
         return Err(AppError::bad_request(format!("Invalid token_mint: {}", e)));
     }
+    let creator_wallet_id = body.creator_wallet_id.clone();
     let config = LaunchConfig {
         token_mint: body.token_mint,
         creator_wallet_id: body.creator_wallet_id,
@@ -71,6 +80,17 @@ pub async fn launch(
 
     let result =
         builder::execute_launch(&state.db, &state.rpc, &state.master_key, config).await?;
+
+    crate::metrics::inc_bundle_launch();
+    crate::audit::log_audit(
+        &state.db,
+        "bundle.launch",
+        &format!("Bundle {} — market: {}", &result.bundle_id, &result.market_address),
+        Some(&creator_wallet_id),
+        None,
+    )
+    .await;
+
     Ok(Json(json!({ "success": true, "data": {
         "bundle_id": result.bundle_id,
         "market_address": result.market_address,
@@ -133,4 +153,96 @@ pub async fn get_bundle(
         "executed_at": b.executed_at,
     }}))
     .into_response())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CollectFeesRequest {
+    pub pool_address: String,
+    pub creator_wallet_id: String,
+}
+
+/// POST /api/v1/bundles/collect-fees — Collect LP fees from a Raydium pool.
+pub async fn collect_fees(
+    State(state): State<BundleState>,
+    Json(body): Json<CollectFeesRequest>,
+) -> Result<Response, AppError> {
+    // Validate pool address
+    if let Err(e) = crate::validation::validate_solana_address(&body.pool_address) {
+        return Err(AppError::bad_request(format!("Invalid pool address: {}", e)));
+    }
+
+    let pool_address = body.pool_address.parse().map_err(|_| {
+        AppError::bad_request("Invalid pool address format")
+    })?;
+
+    // Load creator wallet
+    let mek_guard = state.master_key.read().await;
+    let mek = mek_guard.as_ref().ok_or_else(|| {
+        AppError::forbidden("Master key locked - unlock first")
+    })?;
+
+    let wallet_id = body.creator_wallet_id.clone();
+    let (ciphertext, nonce_vec) = state
+        .db
+        .call(move |conn| {
+            let mut stmt = conn
+                .prepare("SELECT encrypted_secret, nonce FROM wallets WHERE id = ?")?;
+            let ciphertext: Vec<u8> = stmt.query_row([&wallet_id], |row| row.get(0))?;
+            let nonce_vec: Vec<u8> = stmt.query_row([&wallet_id], |row| row.get(1))?;
+            Ok((ciphertext, nonce_vec))
+        })
+        .await
+        .map_err(|e| {
+            tracing::error!("DB error: {:?}", e);
+            AppError::internal("Database error")
+        })?;
+
+    let mut nonce = [0u8; 12];
+    if nonce_vec.len() != 12 {
+        return Err(AppError::internal("Invalid nonce"));
+    }
+    nonce.copy_from_slice(&nonce_vec);
+
+    let encrypted_payload = cresus_crypto::EncryptedPayload {
+        ciphertext,
+        nonce,
+    };
+
+    let decrypted = cresus_crypto::decrypt(&encrypted_payload, mek)
+        .map_err(|_| AppError::internal("Decryption failed"))?;
+
+    let creator_keypair = cresus_core::wallet::keygen::keypair_from_bytes(decrypted.as_ref())
+        .map_err(|_| AppError::internal("Invalid keypair"))?;
+
+    drop(mek_guard);
+
+    // Get RPC client
+    let (rpc_client, _) = state.rpc.get_client().await.map_err(|e| {
+        AppError::internal(format!("RPC error: {}", e))
+    })?;
+
+    // Collect fees
+    match cresus_core::token::fees::collect_creator_fees(
+        &pool_address,
+        &creator_keypair,
+        &rpc_client,
+    )
+    .await
+    {
+        Ok(signature) => {
+            tracing::info!("Fees collected: {}", signature);
+            Ok(Json(json!({
+                "success": true,
+                "data": {
+                    "signature": signature,
+                    "pool_address": body.pool_address,
+                }
+            }))
+            .into_response())
+        }
+        Err(e) => {
+            tracing::warn!("Fee collection failed: {}", e);
+            Err(AppError::internal(format!("Fee collection failed: {}", e)))
+        }
+    }
 }

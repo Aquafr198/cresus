@@ -6,9 +6,6 @@ use solana_sdk::{
 use super::manager::{RpcError, RpcManager};
 
 /// Send a transaction with retry across multiple RPC endpoints.
-///
-/// Each attempt runs the blocking RPC call on a dedicated thread via
-/// `spawn_blocking` to avoid starving the tokio runtime.
 pub async fn send_transaction_with_retry(
     mgr: &RpcManager,
     tx: &Transaction,
@@ -25,11 +22,7 @@ pub async fn send_transaction_with_retry(
         };
 
         let tx_clone = tx.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            client.send_and_confirm_transaction(&tx_clone)
-        })
-        .await
-        .map_err(|e| RpcError::Rpc(format!("spawn_blocking join: {}", e)))?;
+        let result = client.send_and_confirm_transaction(&tx_clone).await;
 
         match result {
             Ok(sig) => {
@@ -57,13 +50,10 @@ pub async fn get_balance(
     pubkey: &solana_sdk::pubkey::Pubkey,
 ) -> Result<u64, RpcError> {
     let (client, _) = mgr.get_client().await?;
-    let pubkey = *pubkey;
-    tokio::task::spawn_blocking(move || {
-        client.get_balance(&pubkey)
-    })
-    .await
-    .map_err(|e| RpcError::Rpc(format!("spawn_blocking join: {}", e)))?
-    .map_err(|e| RpcError::Rpc(e.to_string()))
+    client
+        .get_balance(pubkey)
+        .await
+        .map_err(|e| RpcError::Rpc(e.to_string()))
 }
 
 /// Fetch the latest blockhash.
@@ -71,10 +61,8 @@ pub async fn get_latest_blockhash(
     mgr: &RpcManager,
 ) -> Result<solana_sdk::hash::Hash, RpcError> {
     let (client, _) = mgr.get_client().await?;
-    tokio::task::spawn_blocking(move || {
-        client.get_latest_blockhash()
-    })
-    .await
-    .map_err(|e| RpcError::Rpc(format!("spawn_blocking join: {}", e)))?
-    .map_err(|e| RpcError::Rpc(e.to_string()))
+    client
+        .get_latest_blockhash()
+        .await
+        .map_err(|e| RpcError::Rpc(e.to_string()))
 }

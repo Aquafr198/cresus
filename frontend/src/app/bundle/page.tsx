@@ -15,6 +15,7 @@ export default function BundlePage() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [collectingFees, setCollectingFees] = useState<string | null>(null);
 
   // Launch form
   const [tokenMint, setTokenMint] = useState("");
@@ -75,6 +76,12 @@ export default function BundlePage() {
 
   const handleLaunch = async () => {
     if (!tokenMint.trim() || !creatorWalletId || !solLiquidity || !tokenLiquidity) return;
+    if (
+      !window.confirm(
+        `Launch bundle with ${solLiquidity} SOL liquidity?\n\nThis will create a market, add liquidity, and execute snipe buys in one atomic Jito bundle. This action cannot be undone.`
+      )
+    )
+      return;
     setLaunching(true);
     setError(null);
     setLaunchResult(null);
@@ -102,10 +109,39 @@ export default function BundlePage() {
     }
   };
 
+  const handleCollectFees = async (bundle: Bundle) => {
+    if (!bundle.pool_address) return;
+
+    // Need to get the creator wallet ID from the bundle
+    // For now, we'll use the first wallet as a fallback
+    if (wallets.length === 0) {
+      setError("No wallets available");
+      return;
+    }
+
+    setCollectingFees(bundle.id);
+    setError(null);
+
+    try {
+      const res = await api.bundles.collectFees({
+        pool_address: bundle.pool_address!,
+        creator_wallet_id: creatorWalletId || wallets[0].id,
+      });
+      alert(`Fees collected! Signature: ${res.data.signature}`);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setError(e.message);
+      } else {
+        setError("Failed to collect fees");
+      }
+    } finally {
+      setCollectingFees(null);
+    }
+  };
+
   const statusColor = (status: string) => {
     switch (status) {
       case "confirmed":
-      case "finalized":
         return "text-emerald-400";
       case "failed":
         return "text-red-400";
@@ -362,6 +398,15 @@ export default function BundlePage() {
                       <div className="text-xs text-red-400 mt-1">
                         {b.error_message}
                       </div>
+                    )}
+                    {b.pool_address && b.status === "confirmed" && (
+                      <button
+                        onClick={() => handleCollectFees(b)}
+                        disabled={collectingFees === b.id}
+                        className="mt-2 w-full px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-900/50 disabled:opacity-50 text-emerald-400 text-xs rounded transition-colors"
+                      >
+                        {collectingFees === b.id ? "Collecting..." : "Collect LP Fees"}
+                      </button>
                     )}
                   </div>
                 ))}

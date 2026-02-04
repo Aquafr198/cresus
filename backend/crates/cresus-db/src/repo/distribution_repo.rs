@@ -168,4 +168,74 @@ impl DistributionRepo {
         }).await?;
         Ok(count)
     }
+
+    /// Find distributions that have been running for too long (stalled).
+    /// Returns distributions that are in "running" or "executing" status
+    /// and have been created more than stall_seconds ago.
+    pub async fn find_stalled(
+        conn: &Connection,
+        stall_seconds: i64,
+    ) -> Result<Vec<Distribution>, DbError> {
+        let cutoff_timestamp = chrono::Utc::now().timestamp() - stall_seconds;
+
+        let result = conn.call(move |c| {
+            let mut stmt = c.prepare(
+                "SELECT id, source_wallet_id, strategy, status, total_sol, config_json,
+                        result_json, error_message, created_at, executed_at
+                 FROM distributions
+                 WHERE status IN ('running', 'executing')
+                 AND created_at < ?1
+                 ORDER BY created_at ASC"
+            )?;
+            let rows = stmt.query_map([cutoff_timestamp], |row| {
+                Ok(Distribution {
+                    id: row.get(0)?,
+                    source_wallet_id: row.get(1)?,
+                    strategy: row.get(2)?,
+                    status: row.get(3)?,
+                    total_sol: row.get(4)?,
+                    config_json: row.get(5)?,
+                    result_json: row.get(6)?,
+                    error_message: row.get(7)?,
+                    created_at: row.get(8)?,
+                    executed_at: row.get(9)?,
+                })
+            })?.collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        }).await?;
+        Ok(result)
+    }
+
+    /// Find all pending transfers for a distribution.
+    pub async fn find_pending_transfers(
+        conn: &Connection,
+        distribution_id: String,
+    ) -> Result<Vec<DistributionTransfer>, DbError> {
+        let result = conn.call(move |c| {
+            let mut stmt = c.prepare(
+                "SELECT id, distribution_id, from_wallet_id, to_wallet_id, amount_lamports,
+                        hop_index, delay_ms, status, tx_signature, error_message, executed_at
+                 FROM distribution_transfers
+                 WHERE distribution_id = ?1 AND status = 'pending'
+                 ORDER BY hop_index ASC"
+            )?;
+            let rows = stmt.query_map([&distribution_id], |row| {
+                Ok(DistributionTransfer {
+                    id: row.get(0)?,
+                    distribution_id: row.get(1)?,
+                    from_wallet_id: row.get(2)?,
+                    to_wallet_id: row.get(3)?,
+                    amount_lamports: row.get(4)?,
+                    hop_index: row.get(5)?,
+                    delay_ms: row.get(6)?,
+                    status: row.get(7)?,
+                    tx_signature: row.get(8)?,
+                    error_message: row.get(9)?,
+                    executed_at: row.get(10)?,
+                })
+            })?.collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        }).await?;
+        Ok(result)
+    }
 }

@@ -6,4 +6,7 @@ pub mod profile;
 pub mod monitor;
 pub mod rpc;
 pub mod meme;
+pub mod trading;
 pub mod solana_utils;
+pub mod errors;
+pub mod cache;

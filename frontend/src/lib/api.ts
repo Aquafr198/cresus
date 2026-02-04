@@ -76,13 +76,13 @@ export interface DashboardStats {
 }
 
 export const api = {
-  health: () => request<{ status: string }>("/health"),
+  health: () => request<{ status: string; cluster?: string; version?: string }>("/health"),
   stats: () => request<ApiResponse<DashboardStats>>("/stats"),
 
   auth: {
     status: () => request<AuthStatus>("/auth/status"),
     setup: (password: string) =>
-      request<{ success: boolean }>("/auth/setup", {
+      request<{ success: boolean; data: { mnemonic: string } }>("/auth/setup", {
         method: "POST",
         body: JSON.stringify({ password }),
       }),
@@ -93,6 +93,8 @@ export const api = {
       }),
     lock: () =>
       request<{ success: boolean }>("/auth/lock", { method: "POST" }),
+    seedPhrase: () =>
+      request<ApiResponse<{ mnemonic: string }>>("/auth/seed-phrase"),
   },
 
   wallets: {
@@ -121,6 +123,18 @@ export const api = {
         {
           method: "POST",
           body: JSON.stringify({ export_password: exportPassword }),
+        }
+      ),
+    balance: (id: string) =>
+      request<{ success: boolean; data: { lamports: number; sol: number; tokens: Array<{ mint: string; amount: number; account: string }> } }>(
+        `/wallets/${id}/balance`
+      ),
+    send: (id: string, to_address: string, amount: number, mint_address?: string) =>
+      request<{ success: boolean; data: { signature: string } }>(
+        `/wallets/${id}/send`,
+        {
+          method: "POST",
+          body: JSON.stringify({ to_address, amount, mint_address }),
         }
       ),
   },
@@ -260,6 +274,11 @@ export const api = {
         status: string;
       }>>("/bundles/launch", {
         method: "POST",
+        body: JSON.stringify({ ...params, confirmed: true }),
+      }),
+    collectFees: (params: { pool_address: string; creator_wallet_id: string }) =>
+      request<ApiResponse<{ signature: string }>>("/bundles/collect-fees", {
+        method: "POST",
         body: JSON.stringify(params),
       }),
   },
@@ -344,6 +363,163 @@ export const api = {
       request<ApiResponse<boolean>>(`/profiles/${walletId}`, { method: "DELETE" }),
   },
 
+  trading: {
+    swap: (data: {
+      wallet_id: string;
+      token_mint: string;
+      direction: "buy" | "sell";
+      amount: number;
+      slippage_bps: number;
+    }) =>
+      request<ApiResponse<{ signature: string }>>("/trading/swap", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    volume: {
+      list: () =>
+        request<ApiResponse<Array<{ id: string; token_mint: string; wallet_ids: string[]; status: "stopped" | "running" | "paused"; created_at: number; min_sol: number; max_sol: number; sell_percent: number; min_delay_sec: number; max_delay_sec: number; trades_count: number; total_volume_sol: number }>>>("/trading/volume"),
+      create: (data: {
+        token_mint: string;
+        wallet_ids: string[];
+        min_sol: number;
+        max_sol: number;
+        sell_percent: number;
+        min_delay_sec: number;
+        max_delay_sec: number;
+      }) =>
+        request<ApiResponse<{ id: string; status: string }>>("/trading/volume", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      start: (id: string) =>
+        request<ApiResponse<{ status: string }>>(`/trading/volume/${id}/start`, {
+          method: "POST",
+        }),
+      stop: (id: string) =>
+        request<ApiResponse<{ status: string }>>(`/trading/volume/${id}/stop`, {
+          method: "POST",
+        }),
+      stats: (id: string) =>
+        request<ApiResponse<{ task: { id: string; token_mint: string; wallet_ids: string[]; status: "stopped" | "running" | "paused"; created_at: number; min_sol: number; max_sol: number; sell_percent: number; min_delay_sec: number; max_delay_sec: number; trades_count: number; total_volume_sol: number }; recent_trades: Array<{ wallet_id: string; direction: string; sol_amount: number; token_amount: number; tx_signature: string | null; executed_at: number }> }>>(`/trading/volume/${id}/stats`),
+    },
+
+    bumper: {
+      list: () =>
+        request<ApiResponse<Array<{ id: string; token_mint: string; wallet_ids: string[]; status: "stopped" | "running" | "paused"; created_at: number; price_threshold: number; buy_amount: number; max_buys_hour: number; buys_count: number; total_spent_sol: number }>>>("/trading/bumper"),
+      create: (data: {
+        token_mint: string;
+        wallet_ids: string[];
+        price_threshold: number;
+        buy_amount: number;
+        max_buys_hour: number;
+      }) =>
+        request<ApiResponse<{ id: string; status: string }>>("/trading/bumper", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      start: (id: string) =>
+        request<ApiResponse<{ status: string }>>(`/trading/bumper/${id}/start`, {
+          method: "POST",
+        }),
+      stop: (id: string) =>
+        request<ApiResponse<{ status: string }>>(`/trading/bumper/${id}/stop`, {
+          method: "POST",
+        }),
+    },
+
+    warmer: {
+      list: () =>
+        request<ApiResponse<Array<{ id: string; wallet_ids: string[]; status: "pending" | "running" | "completed" | "stopped"; created_at: number; actions_count: number; actions_completed: number; min_delay_hours: number; max_delay_hours: number }>>>("/trading/warmer"),
+      create: (data: {
+        wallet_ids: string[];
+        actions_count: number;
+        min_delay_hours: number;
+        max_delay_hours: number;
+      }) =>
+        request<ApiResponse<{ id: string; status: string }>>("/trading/warmer", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      start: (id: string) =>
+        request<ApiResponse<{ status: string }>>(`/trading/warmer/${id}/start`, {
+          method: "POST",
+        }),
+      stop: (id: string) =>
+        request<ApiResponse<{ status: string }>>(`/trading/warmer/${id}/stop`, {
+          method: "POST",
+        }),
+    },
+
+    pumpFun: {
+      list: () =>
+        request<ApiResponse<Array<{
+          id: string;
+          token_name: string;
+          token_symbol: string;
+          token_description: string;
+          image_url: string;
+          token_mint: string | null;
+          creator_wallet_id: string;
+          initial_buy_sol: number;
+          status: string;
+          tx_signature: string | null;
+          bonding_curve: string | null;
+          metadata_uri: string | null;
+          created_at: number;
+          updated_at: number;
+        }>>>("/trading/pump-fun"),
+      create: (data: {
+        token_name: string;
+        token_symbol: string;
+        token_description?: string;
+        image_url?: string;
+        creator_wallet_id: string;
+        initial_buy_sol?: number;
+        slippage_bps?: number;
+        twitter?: string;
+        telegram?: string;
+        website?: string;
+      }) =>
+        request<ApiResponse<{ id: string; status: string }>>("/trading/pump-fun", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      launch: (id: string) =>
+        request<ApiResponse<{
+          launch_id: string;
+          token_mint: string;
+          bonding_curve: string;
+          tx_signature: string;
+          metadata_uri: string;
+          status: string;
+        }>>(`/trading/pump-fun/${id}/launch`, {
+          method: "POST",
+          body: JSON.stringify({ confirmed: true }),
+        }),
+      buy: (data: {
+        wallet_id: string;
+        token_mint: string;
+        amount_sol: number;
+        slippage_bps?: number;
+      }) =>
+        request<ApiResponse<{ signature: string }>>("/trading/pump-fun/buy", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      sell: (data: {
+        wallet_id: string;
+        token_mint: string;
+        amount_tokens: number;
+        slippage_bps?: number;
+      }) =>
+        request<ApiResponse<{ signature: string }>>("/trading/pump-fun/sell", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+    },
+  },
+
   monitor: {
     subscribe: (mintAddress: string) =>
       request<ApiResponse<{ mint_address: string; status: string }>>("/monitor/subscribe", {
@@ -357,6 +533,18 @@ export const api = {
       }),
     subscriptions: () =>
       request<ApiResponse<string[]>>("/monitor/subscriptions"),
+  },
+
+  audit: {
+    list: (limit = 50, offset = 0) =>
+      request<ApiResponse<Array<{
+        id: number;
+        action: string;
+        detail: string;
+        wallet_id: string | null;
+        tx_signature: string | null;
+        created_at: number;
+      }>>>(`/audit?limit=${limit}&offset=${offset}`),
   },
 };
 

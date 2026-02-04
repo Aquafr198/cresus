@@ -58,3 +58,16 @@ pub struct CreateGroupRequest {
 pub struct ExportWalletRequest {
     pub export_password: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct SendTransactionRequest {
+    pub to_address: String,
+    pub amount: u64,
+    pub mint_address: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RestoreFromSeedRequest {
+    pub mnemonic: String,
+    pub password: String,
+}

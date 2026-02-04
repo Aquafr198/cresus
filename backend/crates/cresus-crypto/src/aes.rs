@@ -15,6 +15,8 @@ pub enum CryptoError {
     DecryptionFailed,
     #[error("Invalid key length: expected 32 bytes")]
     InvalidKeyLength,
+    #[error("{0}")]
+    Other(String),
 }
 
 /// Encrypted data with its nonce, suitable for storage.

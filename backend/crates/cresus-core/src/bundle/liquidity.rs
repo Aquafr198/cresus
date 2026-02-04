@@ -53,7 +53,7 @@ pub struct RaydiumPDAs {
 
 impl RaydiumPDAs {
     /// Derive all PDAs from the market address.
-    pub fn derive(market: &Pubkey, coin_mint: &Pubkey, pc_mint: &Pubkey) -> Result<Self, String> {
+    pub fn derive(market: &Pubkey, _coin_mint: &Pubkey, _pc_mint: &Pubkey) -> Result<Self, String> {
         let amm_program = *crate::solana_utils::RAYDIUM_AMM_PROGRAM;
 
         // AMM ID = PDA([amm_program, market, "amm_associated_seed"], amm_program)

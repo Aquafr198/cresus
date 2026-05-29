@@ -1,6 +1,7 @@
 "use client";
 
 import { ExclamationTriangleIcon } from "@heroicons/react/24/solid";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 
 export interface ConfirmDialogProps {
   title: string;
@@ -38,14 +39,27 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const styles = variantStyles[variant];
 
+  // Audit P4 UX-9 — Escape dismisses the dialog (always active while mounted).
+  useEscapeKey(true, onCancel);
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-96 shadow-2xl animate-slide-in">
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm"
+      onClick={onCancel}
+      role="presentation"
+    >
+      {/* Inner card stops click propagation so clicks inside don't dismiss. */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-96 shadow-2xl animate-slide-in"
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="flex items-start gap-3 mb-4">
           <ExclamationTriangleIcon className={`w-6 h-6 flex-shrink-0 ${styles.title}`} />
           <h3 className={`text-lg font-semibold ${styles.title}`}>{title}</h3>
         </div>
-        <p className="text-sm text-gray-300 mb-6 leading-relaxed">{message}</p>
+        <p className="text-sm text-gray-300 mb-6 leading-relaxed whitespace-pre-line">{message}</p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}

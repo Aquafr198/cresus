@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { JSX } from "react";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -40,7 +41,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             Token Creation Process
           </h3>
 
@@ -123,7 +124,7 @@ export default function FeaturesPage() {
             </div>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             Vanity Address
           </h3>
           <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3 mb-3">
@@ -177,7 +178,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is a Jito Bundle?
           </h3>
           <p className="text-gray-300">
@@ -234,7 +235,7 @@ export default function FeaturesPage() {
             </div>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Launch a Token
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -332,7 +333,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             Why Anti-Bubble?
           </h3>
           <p className="text-gray-300">
@@ -386,7 +387,7 @@ export default function FeaturesPage() {
             </div>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use Distribution
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -445,7 +446,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is the Volume Bot?
           </h3>
           <p className="text-gray-300">
@@ -455,7 +456,7 @@ export default function FeaturesPage() {
             and improves your token&apos;s visibility on DEX aggregators and trackers.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -578,7 +579,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is the Bumper Bot?
           </h3>
           <p className="text-gray-300">
@@ -588,7 +589,7 @@ export default function FeaturesPage() {
             dumping too far and maintains holder confidence.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -671,7 +672,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is Wallet Warming?
           </h3>
           <p className="text-gray-300">
@@ -681,7 +682,7 @@ export default function FeaturesPage() {
             using them for trading or sniping.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -754,7 +755,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is Manual Trade?
           </h3>
           <p className="text-gray-300">
@@ -763,7 +764,7 @@ export default function FeaturesPage() {
             testing, or manually managing positions.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -820,16 +821,16 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is the Meme Library?
           </h3>
           <p className="text-gray-300">
             The Meme Library is your asset management system for token branding.
             Upload logos, banners, and other images, then create and pin metadata
-            JSON to IPFS — all from within Cresus.
+            JSON to IPFS — all from within Offivex.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -894,7 +895,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What are Random Profiles?
           </h3>
           <p className="text-gray-300">
@@ -904,7 +905,7 @@ export default function FeaturesPage() {
             makes your wallet network appear more natural and diverse.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -944,7 +945,7 @@ export default function FeaturesPage() {
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is the Monitor?
           </h3>
           <p className="text-gray-300">
@@ -953,7 +954,7 @@ export default function FeaturesPage() {
             transactions occur on-chain.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Use
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -1016,17 +1017,17 @@ ws://localhost:3001/ws/monitor
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             What is RPC Configuration?
           </h3>
           <p className="text-gray-300">
-            RPC (Remote Procedure Call) endpoints are how Cresus communicates
+            RPC (Remote Procedure Call) endpoints are how Offivex communicates
             with the Solana blockchain. You can configure multiple endpoints for
-            redundancy and load balancing. If one endpoint goes down, Cresus
+            redundancy and load balancing. If one endpoint goes down, Offivex
             automatically fails over to the next healthy one.
           </p>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             How to Manage RPC Endpoints
           </h3>
           <div className="bg-gray-800 rounded-lg p-4">
@@ -1087,7 +1088,7 @@ ws://localhost:3001/ws/monitor
               Connection Pooling
             </h4>
             <p className="text-gray-300 text-sm">
-              Cresus automatically pools and caches RPC connections with a 10-minute
+              Offivex automatically pools and caches RPC connections with a 10-minute
               TTL. When using trading bots, the fast round-robin selection skips
               health checks for lower latency. Unhealthy endpoints are automatically
               evicted and recreated on the next request.
@@ -1099,11 +1100,11 @@ ws://localhost:3001/ws/monitor
   ];
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-6 pt-12 pb-24">
       <div className="mb-8">
         <Link
           href="/docs"
-          className="inline-flex items-center text-indigo-400 hover:text-indigo-300 mb-4 transition-all hover:gap-3 gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg px-2 py-1"
+          className="inline-flex items-center text-offivex-purple-light hover:text-offivex-purple-light mb-4 transition-all hover:gap-3 gap-2 focus:outline-none focus:ring-2 focus:ring-offivex-purple rounded-lg px-2 py-1"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Back to Documentation
@@ -1116,6 +1117,23 @@ ws://localhost:3001/ws/monitor
         </p>
       </div>
 
+      <div className="mb-8 p-4 rounded-lg border border-offivex-purple/30 bg-offivex-purple/[0.05]">
+        <p className="text-sm text-gray-300 leading-relaxed">
+          <strong className="text-offivex-purple-light">
+            Looking for one feature at a time?
+          </strong>{" "}
+          This page is the long-form deep dive. For a focused walkthrough of
+          a single feature with its config knobs and failure modes, see the{" "}
+          <Link
+            href="/docs#feature-reference"
+            className="text-offivex-purple-light underline"
+          >
+            per-feature reference pages
+          </Link>
+          .
+        </p>
+      </div>
+
       <div className="space-y-3">
         {sections.map((section) => (
           <div
@@ -1124,7 +1142,7 @@ ws://localhost:3001/ws/monitor
           >
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-offivex-purple"
             >
               <h2 className="text-xl font-semibold text-left">
                 {section.title}

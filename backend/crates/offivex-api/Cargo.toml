@@ -1,0 +1,30 @@
+[package]
+name = "offivex-api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum = { version = "0.8", features = ["ws", "multipart"] }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+solana-sdk = "=2.1.15"
+
+tokio-rusqlite = "0.5"
+chrono = { version = "0.4", features = ["serde"] }
+futures-util = "0.3"
+dashmap = "6"
+# Phase 1 user-mgmt deps
+sha2 = "0.10"
+hex = "0.4"
+hmac = "0.12"
+rand = "0.8"
+base64 = { workspace = true }
+reqwest = { workspace = true }
+
+offivex-core = { path = "../offivex-core" }
+offivex-db = { path = "../offivex-db" }
+offivex-crypto = { path = "../offivex-crypto" }

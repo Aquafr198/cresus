@@ -3,12 +3,20 @@
 import { useEffect, useState, useCallback } from "react";
 import { api, ApiError } from "@/lib/api";
 import { Distribution, Wallet } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { HelpTooltip } from "@/components/ui/HelpTooltip";
 
 export default function DistributionPage() {
   const [distributions, setDistributions] = useState<Distribution[]>([]);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // UX-5 audit P2 — confirm before launching N transfers on-chain.
+  const [confirmDialog, setConfirmDialog] = useState<null | {
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>(null);
 
   // Plan form
   const [sourceWalletId, setSourceWalletId] = useState("");
@@ -23,7 +31,33 @@ export default function DistributionPage() {
   const [varyTiming, setVaryTiming] = useState(true);
   const [minDelayMs, setMinDelayMs] = useState("500");
   const [maxDelayMs, setMaxDelayMs] = useState("5000");
+  // Chain-buy : optionally fan out a Jupiter buy on every target wallet
+  // right after the distribution lands. Closes Kinesis-style "fonds ET
+  // achats" in one click instead of forcing two-step (distribution then
+  // separate bundle/trade).
+  const [chainBuyEnabled, setChainBuyEnabled] = useState(false);
+  const [chainBuyMint, setChainBuyMint] = useState("");
+  const [chainBuyPercent, setChainBuyPercent] = useState("80");
+  const [chainBuySlippageBps, setChainBuySlippageBps] = useState("1500");
+  // buy_pattern : how buys are sequenced across time. Staggered is the
+  // anti-bubble default. Parallel is fast but bundlemap-detectable.
+  type BuyPatternMode = "parallel" | "staggered" | "batched";
+  const [chainBuyPattern, setChainBuyPattern] = useState<BuyPatternMode>("staggered");
+  const [chainBuyStaggerMinMs, setChainBuyStaggerMinMs] = useState("1000");
+  const [chainBuyStaggerMaxMs, setChainBuyStaggerMaxMs] = useState("8000");
+  const [chainBuyBatchSize, setChainBuyBatchSize] = useState("3");
+  const [chainBuyBatchDelayMs, setChainBuyBatchDelayMs] = useState("10000");
+  // 0–50 : ±N percentage points around `percent` per wallet. Defeats the
+  // "every wallet spends exactly X%" fingerprint.
+  const [chainBuyPercentVariance, setChainBuyPercentVariance] = useState("10");
   const [planning, setPlanning] = useState(false);
+  // Per-distribution executing flag — guards Execute buttons from double-click
+  // (which would otherwise fire two on-chain executor spawns racing for the
+  // same row; the backend now also returns 409 Conflict on the second call,
+  // but defending UI-side avoids the round-trip + error toast in the happy
+  // path). Keyed by distribution id so multiple Execute calls on the row
+  // list don't share state.
+  const [executingIds, setExecutingIds] = useState<Set<string>>(new Set());
   const [planResult, setPlanResult] = useState<{
     distribution_id: string;
     num_transfers: number;
@@ -104,13 +138,145 @@ export default function DistributionPage() {
   };
 
   const handleExecute = async (id: string) => {
+    // UX-5 audit P2 + POST-3 audit final — show a confirm dialog with the
+    // ACTUAL transfer count + total SOL before launching irreversible on-chain
+    // operations. Previously this read from `planResult` (state local) which
+    // is only set right after `handlePlan()` — so re-executing a historical
+    // distribution showed "?" instead of the count. POST-3 fix: always fetch
+    // fresh details via `api.distributions.get()`.
+    const dist = distributions.find((d) => d.id === id);
     setError(null);
+
+    let transferCount: number | null = null;
+    let totalSolStr = "?";
     try {
-      await api.distributions.execute(id);
+      const detail = await api.distributions.get(id);
+      transferCount = detail.data.transfers?.length ?? null;
+      const totalLamports = detail.data.transfers
+        ?.reduce((acc, t) => acc + (t.amount_lamports || 0), 0) ?? 0;
+      totalSolStr = (totalLamports / 1e9).toFixed(4);
+    } catch (e) {
+      // Fallback to stale planResult if the GET fails — still better than
+      // exec without confirm.
+      if (planResult?.distribution_id === id) {
+        transferCount = planResult.num_transfers;
+        totalSolStr = planResult.transfers
+          .reduce((acc, t) => acc + t.amount_sol, 0)
+          .toFixed(4);
+      } else if (dist?.total_sol != null) {
+        totalSolStr = dist.total_sol.toString();
+      }
+      if (e instanceof ApiError) {
+        console.warn("distribution detail fetch failed, using fallback:", e.message);
+      }
+    }
+
+    const linesArr = [
+      transferCount != null
+        ? `${transferCount} on-chain transfers will be executed.`
+        : `On-chain transfers will be executed (count not available).`,
+      `Total: ${totalSolStr} SOL`,
+      ``,
+      `Source wallet: ${
+        dist?.source_wallet_id
+          ? dist.source_wallet_id.slice(0, 8) + "…"
+          : "(unknown)"
+      }`,
+      `Strategy: ${dist?.strategy ?? "(unknown)"}`,
+      ``,
+      `This action cannot be undone. Each transfer is a separate on-chain transaction.`,
+    ];
+    setConfirmDialog({
+      title: "Confirm distribution execution",
+      message: linesArr.join("\n"),
+      onConfirm: () => {
+        setConfirmDialog(null);
+        executeDistribution(id);
+      },
+    });
+  };
+
+  const executeDistribution = async (id: string) => {
+    setError(null);
+    // Re-entrance guard: bail if this distribution is already executing
+    // from a previous click. The Confirm dialog can fire multiple onConfirm
+    // callbacks if the user is fast on the keyboard.
+    if (executingIds.has(id)) return;
+    setExecutingIds((s) => {
+      const next = new Set(s);
+      next.add(id);
+      return next;
+    });
+    // Build the optional chain_buy payload only when the toggle is on and
+    // the user has filled a valid mint. Validation is also enforced
+    // server-side; this is the friendlier UX path.
+    type ChainBuyArg = NonNullable<Parameters<typeof api.distributions.execute>[1]>;
+    type ChainBuyPattern = NonNullable<ChainBuyArg["buy_pattern"]>;
+    let chainBuy: ChainBuyArg | undefined = undefined;
+    if (chainBuyEnabled && chainBuyMint.trim()) {
+      const pct = parseInt(chainBuyPercent, 10);
+      const slip = parseInt(chainBuySlippageBps, 10);
+      const variance = parseInt(chainBuyPercentVariance, 10);
+      if (!Number.isFinite(pct) || pct < 1 || pct > 100) {
+        setError("Chain-buy: percent must be 1-100");
+        return;
+      }
+      if (!Number.isFinite(slip) || slip < 1 || slip > 5000) {
+        setError("Chain-buy: slippage must be 1-5000 bps");
+        return;
+      }
+      if (!Number.isFinite(variance) || variance < 0 || variance > 50) {
+        setError("Chain-buy: percent_variance must be 0-50");
+        return;
+      }
+      // Build buy_pattern variant.
+      let buy_pattern: ChainBuyPattern;
+      if (chainBuyPattern === "parallel") {
+        buy_pattern = { mode: "parallel" };
+      } else if (chainBuyPattern === "staggered") {
+        const min = parseInt(chainBuyStaggerMinMs, 10);
+        const max = parseInt(chainBuyStaggerMaxMs, 10);
+        if (
+          !Number.isFinite(min) || !Number.isFinite(max) ||
+          min < 0 || max < min
+        ) {
+          setError("Chain-buy: stagger delays invalid (max >= min >= 0)");
+          return;
+        }
+        buy_pattern = { mode: "staggered", min_delay_ms: min, max_delay_ms: max };
+      } else {
+        const bs = parseInt(chainBuyBatchSize, 10);
+        const bd = parseInt(chainBuyBatchDelayMs, 10);
+        if (!Number.isFinite(bs) || bs < 1) {
+          setError("Chain-buy: batch_size must be >= 1");
+          return;
+        }
+        if (!Number.isFinite(bd) || bd < 0) {
+          setError("Chain-buy: batch_delay_ms must be >= 0");
+          return;
+        }
+        buy_pattern = { mode: "batched", batch_size: bs, batch_delay_ms: bd };
+      }
+      chainBuy = {
+        mint: chainBuyMint.trim(),
+        percent: pct,
+        slippage_bps: slip,
+        buy_pattern,
+        percent_variance: variance,
+      };
+    }
+    try {
+      await api.distributions.execute(id, chainBuy);
       fetchData();
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
       else setError("Execution failed");
+    } finally {
+      setExecutingIds((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -141,6 +307,17 @@ export default function DistributionPage() {
     <div>
       <h1 className="text-3xl font-bold mb-6">Anti-Bubble Distribution</h1>
 
+      {confirmDialog && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          variant="warning"
+          confirmText="Execute"
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
       {error && (
         <div className="text-red-400 text-sm mb-4 bg-red-900/20 border border-red-800 rounded p-2">
           {error}
@@ -155,10 +332,231 @@ export default function DistributionPage() {
             </h3>
             <button
               onClick={() => handleExecute(planResult.distribution_id)}
-              className="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 rounded transition-colors"
+              disabled={executingIds.has(planResult.distribution_id)}
+              className="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
             >
-              Execute Now
+              {executingIds.has(planResult.distribution_id)
+                ? "Executing…"
+                : chainBuyEnabled && chainBuyMint.trim()
+                ? "Execute + Auto-Buy"
+                : "Execute Now"}
             </button>
+          </div>
+
+          {/* Chain-buy auto-buy panel — only matters at execute time so it
+              lives next to the Execute button rather than the planning form. */}
+          <div className="mb-3 rounded-md border border-offivex-purple/30 bg-offivex-purple/[0.04] p-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={chainBuyEnabled}
+                onChange={(e) => setChainBuyEnabled(e.target.checked)}
+                className="accent-offivex-purple"
+              />
+              <span className="text-xs font-medium text-offivex-purple-light">
+                Auto-buy after distribute — fan out a Jupiter swap on every target
+              </span>
+            </label>
+            {chainBuyEnabled && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    Mint to buy
+                  </label>
+                  <input
+                    value={chainBuyMint}
+                    onChange={(e) => setChainBuyMint(e.target.value)}
+                    placeholder="Paste mint address"
+                    className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs font-mono focus:outline-none focus:border-offivex-purple/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    % of each wallet's SOL
+                  </label>
+                  <input
+                    value={chainBuyPercent}
+                    onChange={(e) => setChainBuyPercent(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="100"
+                    step="5"
+                    className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs focus:outline-none focus:border-offivex-purple/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                    Slippage (bps)
+                  </label>
+                  <input
+                    value={chainBuySlippageBps}
+                    onChange={(e) => setChainBuySlippageBps(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="5000"
+                    step="100"
+                    className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs focus:outline-none focus:border-offivex-purple/50"
+                  />
+                </div>
+                <div className="sm:col-span-3 text-[10px] text-gray-500 leading-relaxed">
+                  Reserves ~0.01 SOL per wallet for tx fees + ATA, then spends
+                  the configured % of the remainder on Jupiter. Failures are
+                  per-wallet, results land in this distribution's history once
+                  complete.
+                </div>
+
+                {/* Buy pattern — the anti-bubble lever on the BUY side.
+                    Parallel = fast but fingerprinted. Staggered = default
+                    safe. Batched = extra stealth via Layered-style groups. */}
+                <div className="sm:col-span-3 pt-3 border-t border-white/[0.05]">
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-2">
+                    Buy pattern (anti-bubble)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {(["staggered", "batched", "parallel"] as const).map(
+                      (mode) => (
+                        <label
+                          key={mode}
+                          className={`flex items-start gap-2 rounded-md border p-2 cursor-pointer transition-colors ${
+                            chainBuyPattern === mode
+                              ? "border-offivex-purple/50 bg-offivex-purple/[0.06]"
+                              : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="chain-buy-pattern"
+                            checked={chainBuyPattern === mode}
+                            onChange={() => setChainBuyPattern(mode)}
+                            className="mt-0.5 accent-offivex-purple"
+                          />
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium text-gray-100 capitalize">
+                              {mode === "staggered" && "🛡️ Staggered (default)"}
+                              {mode === "batched" && "🥷 Batched"}
+                              {mode === "parallel" && "⚡ Parallel"}
+                            </div>
+                            <div className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+                              {mode === "staggered" &&
+                                "Random delay 1-8s between buys. Defeats bubble-map sync detection."}
+                              {mode === "batched" &&
+                                "Layered groups with inter-batch delay. Max stealth."}
+                              {mode === "parallel" &&
+                                "All buys at once. Fast but visible as a bundle on screeners."}
+                            </div>
+                          </div>
+                        </label>
+                      ),
+                    )}
+                  </div>
+
+                  {/* Per-mode params */}
+                  {chainBuyPattern === "staggered" && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                          Min delay (ms)
+                        </label>
+                        <input
+                          value={chainBuyStaggerMinMs}
+                          onChange={(e) =>
+                            setChainBuyStaggerMinMs(e.target.value)
+                          }
+                          type="number"
+                          min="0"
+                          step="500"
+                          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs focus:outline-none focus:border-offivex-purple/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                          Max delay (ms)
+                        </label>
+                        <input
+                          value={chainBuyStaggerMaxMs}
+                          onChange={(e) =>
+                            setChainBuyStaggerMaxMs(e.target.value)
+                          }
+                          type="number"
+                          min="0"
+                          step="500"
+                          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs focus:outline-none focus:border-offivex-purple/50"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {chainBuyPattern === "batched" && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                          Batch size (wallets)
+                        </label>
+                        <input
+                          value={chainBuyBatchSize}
+                          onChange={(e) =>
+                            setChainBuyBatchSize(e.target.value)
+                          }
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs focus:outline-none focus:border-offivex-purple/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                          Batch delay (ms)
+                        </label>
+                        <input
+                          value={chainBuyBatchDelayMs}
+                          onChange={(e) =>
+                            setChainBuyBatchDelayMs(e.target.value)
+                          }
+                          type="number"
+                          min="0"
+                          step="1000"
+                          className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs focus:outline-none focus:border-offivex-purple/50"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {chainBuyPattern === "parallel" && (
+                    <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/[0.05] p-2 text-[10px] text-amber-200 leading-snug">
+                      ⚠ Parallel buys land in the same ~1-2s window — Bubblemaps
+                      and similar screeners flag this as a coordinated bundle.
+                      Use only when speed beats stealth.
+                    </div>
+                  )}
+                </div>
+
+                {/* Buy size variance — defeats "every wallet spends N%"
+                    fingerprint by randomizing the per-wallet percent. */}
+                <div className="sm:col-span-3 pt-3 border-t border-white/[0.05]">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] uppercase tracking-wider text-gray-500">
+                      Per-wallet % variance
+                    </label>
+                    <span className="text-[11px] font-mono text-offivex-purple-light">
+                      ±{chainBuyPercentVariance}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="50"
+                    step="5"
+                    value={chainBuyPercentVariance}
+                    onChange={(e) =>
+                      setChainBuyPercentVariance(e.target.value)
+                    }
+                    className="w-full accent-offivex-purple"
+                  />
+                  <div className="text-[10px] text-gray-500 mt-1 leading-snug">
+                    0 = every wallet spends exactly {chainBuyPercent}% (a
+                    fingerprint). 10 = uniform random in [{Math.max(1, parseInt(chainBuyPercent || "0", 10) - parseInt(chainBuyPercentVariance || "0", 10) || 0)}%, {Math.min(100, parseInt(chainBuyPercent || "0", 10) + parseInt(chainBuyPercentVariance || "0", 10) || 0)}%].
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-1 text-xs max-h-48 overflow-y-auto">
             {planResult.transfers.map((t, i) => (
@@ -264,8 +662,15 @@ export default function DistributionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="flex items-center text-xs text-gray-400 mb-1">
                     Strategy
+                    <HelpTooltip label="Strategy help">
+                      <strong>Direct</strong>: one transfer per target.{" "}
+                      <strong>Multi-Hop</strong>: SOL routes through intermediate
+                      wallets to obscure the source→target link (BubbleMaps
+                      evasion). <strong>Layered</strong>: targets are split into
+                      batches with a delay between batches.
+                    </HelpTooltip>
                   </label>
                   <select
                     value={strategy}
@@ -282,8 +687,13 @@ export default function DistributionPage() {
               {/* Strategy-specific options */}
               {strategy === "multi_hop" && (
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="flex items-center text-xs text-gray-400 mb-1">
                     Number of Hops
+                    <HelpTooltip label="Hops help">
+                      Each hop is an extra wallet the SOL passes through. More
+                      hops = harder to trace, but each hop costs ~5000 lamports
+                      in fees AND adds latency. 1–2 is usually plenty.
+                    </HelpTooltip>
                   </label>
                   <input
                     value={hops}
@@ -302,8 +712,13 @@ export default function DistributionPage() {
               {strategy === "layered" && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">
+                    <label className="flex items-center text-xs text-gray-400 mb-1">
                       Batch Size
+                      <HelpTooltip label="Batch size help">
+                        Number of target wallets credited per batch. Smaller
+                        batches = lower per-batch on-chain footprint, but more
+                        total batches (and longer total runtime).
+                      </HelpTooltip>
                     </label>
                     <input
                       value={batchSize}
@@ -314,8 +729,12 @@ export default function DistributionPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">
+                    <label className="flex items-center text-xs text-gray-400 mb-1">
                       Batch Delay (ms)
+                      <HelpTooltip label="Batch delay help">
+                        Pause between batches in milliseconds. 10000 = 10s. Real
+                        delay is randomized ±30% to look organic.
+                      </HelpTooltip>
                     </label>
                     <input
                       value={batchDelayMs}
@@ -344,11 +763,22 @@ export default function DistributionPage() {
                         className="rounded bg-gray-700 border-gray-600"
                       />
                       Vary Amounts
+                      <HelpTooltip label="Vary amounts help">
+                        Randomly perturbs each recipient&apos;s share within ±
+                        Max Deviation. Defeats heuristics that flag equal-split
+                        distributions as bot-driven. Total always sums to the
+                        configured amount (zero drift).
+                      </HelpTooltip>
                     </label>
                     {varyAmounts && (
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1">
+                        <label className="flex items-center text-xs text-gray-400 mb-1">
                           Max Deviation (%)
+                          <HelpTooltip label="Deviation help">
+                            E.g. 15% = each recipient gets between -15% and +15%
+                            of the mean amount. Higher = more variance, harder
+                            to cluster. 10–20% is the sweet spot.
+                          </HelpTooltip>
                         </label>
                         <input
                           value={(parseFloat(amountDeviation) * 100).toString()}
@@ -375,6 +805,11 @@ export default function DistributionPage() {
                         className="rounded bg-gray-700 border-gray-600"
                       />
                       Vary Timing
+                      <HelpTooltip label="Vary timing help">
+                        Random delays between transfers in the Min-Max range.
+                        Spreads on-chain activity across time so transfers don&apos;t
+                        all land in the same slot.
+                      </HelpTooltip>
                     </label>
                     {varyTiming && (
                       <div className="space-y-2">
@@ -466,9 +901,10 @@ export default function DistributionPage() {
                     {d.status === "planned" && (
                       <button
                         onClick={() => handleExecute(d.id)}
-                        className="mt-2 px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 rounded transition-colors"
+                        disabled={executingIds.has(d.id)}
+                        className="mt-2 px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
                       >
-                        Execute
+                        {executingIds.has(d.id) ? "Executing…" : "Execute"}
                       </button>
                     )}
                   </div>

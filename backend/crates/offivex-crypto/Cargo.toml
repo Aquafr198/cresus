@@ -1,0 +1,13 @@
+[package]
+name = "offivex-crypto"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+aes-gcm = "0.10"
+argon2 = "0.5"
+zeroize = "1.7"
+rand = "0.8"
+serde.workspace = true
+thiserror.workspace = true
+bip39 = "2.0"

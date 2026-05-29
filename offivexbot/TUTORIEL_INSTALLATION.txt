@@ -1,0 +1,463 @@
+================================================================================
+                    TUTORIEL COMPLET - BOT DISCORD Offivex
+                         Installation de A à Z (Windows)
+================================================================================
+
+Ce guide t'explique comment installer et configurer ton bot Discord Offivex
+depuis zéro. Suis chaque étape dans l'ordre !
+
+================================================================================
+                              TABLE DES MATIÈRES
+================================================================================
+
+1. Prérequis - Installation de Node.js
+2. Création du Bot sur Discord Developer Portal
+3. Configuration de MongoDB Atlas (Base de données gratuite)
+4. Configuration du fichier .env
+5. Configuration du fichier config.json
+6. Installation des dépendances
+7. Enregistrement des commandes slash
+8. Lancement du bot
+9. Utilisation avec PM2 (optionnel - pour serveur)
+10. Dépannage / FAQ
+
+================================================================================
+              ÉTAPE 1 : PRÉREQUIS - INSTALLATION DE NODE.JS
+================================================================================
+
+Node.js est nécessaire pour faire fonctionner ton bot.
+
+1. Va sur : https://nodejs.org/
+
+2. Télécharge la version "LTS" (Long Term Support) - bouton vert de gauche
+
+3. Lance l'installateur téléchargé (.msi)
+   - Clique "Next" à chaque étape
+   - IMPORTANT : Coche "Automatically install necessary tools" si proposé
+   - Clique "Install"
+
+4. Redémarre ton ordinateur après l'installation
+
+5. Vérifie l'installation :
+   - Ouvre PowerShell (Windows + X, puis "Windows PowerShell")
+   - Tape : node -v
+   - Tu dois voir un numéro de version (ex: v20.11.0)
+   - Tape : npm -v
+   - Tu dois voir un numéro de version (ex: 10.2.4)
+
+Si les deux commandes affichent des versions, Node.js est bien installé !
+
+================================================================================
+              ÉTAPE 2 : CRÉATION DU BOT SUR DISCORD
+================================================================================
+
+2.1 - CRÉER L'APPLICATION
+-------------------------
+
+1. Va sur : https://discord.com/developers/applications
+
+2. Connecte-toi avec ton compte Discord
+
+3. Clique sur "New Application" (bouton bleu en haut à droite)
+
+4. Donne un nom à ton application : "Offivex Bot"
+
+5. Accepte les conditions et clique "Create"
+
+2.2 - CONFIGURER LE BOT
+-----------------------
+
+1. Dans le menu de gauche, clique sur "Bot"
+
+2. Clique sur "Reset Token" puis "Yes, do it!"
+
+3. COPIE LE TOKEN et garde-le précieusement ! 
+   ⚠️ NE PARTAGE JAMAIS CE TOKEN AVEC PERSONNE !
+   C'est comme le mot de passe de ton bot.
+
+4. Dans la section "Privileged Gateway Intents", ACTIVE les 3 options :
+   ✅ PRESENCE INTENT
+   ✅ SERVER MEMBERS INTENT
+   ✅ MESSAGE CONTENT INTENT
+
+5. Clique sur "Save Changes" en bas
+
+2.3 - INVITER LE BOT SUR TON SERVEUR
+------------------------------------
+
+1. Dans le menu de gauche, clique sur "OAuth2" puis "URL Generator"
+
+2. Dans "SCOPES", coche :
+   ✅ bot
+   ✅ applications.commands
+
+3. Dans "BOT PERMISSIONS", coche :
+   ✅ Administrator (plus simple, donne tous les droits)
+   
+   OU si tu préfères des permissions spécifiques, coche :
+   ✅ Manage Roles
+   ✅ Manage Channels
+   ✅ Kick Members
+   ✅ Ban Members
+   ✅ Manage Messages
+   ✅ Read Message History
+   ✅ Send Messages
+   ✅ Embed Links
+   ✅ Attach Files
+   ✅ Add Reactions
+   ✅ Use Slash Commands
+
+4. Copie l'URL générée en bas de la page
+
+5. Colle cette URL dans ton navigateur
+
+6. Sélectionne ton serveur Discord et clique "Autoriser"
+
+Ton bot est maintenant sur ton serveur (mais hors ligne pour l'instant) !
+
+================================================================================
+              ÉTAPE 3 : BASE DE DONNÉES (SQLITE LOCAL)
+================================================================================
+
+Le bot utilise SQLite (fichier local `data/bot.db`). Aucune base externe à
+configurer — le fichier est créé automatiquement au premier démarrage avec
+les 4 tables nécessaires (tickets, infractions, verifications, pnl_checkpoint).
+
+3.1 - EMPLACEMENT
+-----------------
+
+Par défaut : `offivexbot/data/bot.db`
+
+Tu peux le déplacer avec la variable d'environnement `BOT_DB_PATH` dans le
+fichier `.env` (voir étape 4). Le dossier parent est créé automatiquement
+s'il n'existe pas.
+
+3.2 - BACKUP
+------------
+
+Pour sauvegarder la DB :
+  cp data/bot.db data/bot.db.backup-YYYY-MM-DD
+
+Pour inspecter :
+  sqlite3 data/bot.db ".schema"
+  sqlite3 data/bot.db "SELECT * FROM tickets;"
+
+(Installe sqlite3 depuis https://sqlite.org si nécessaire — Windows
+fournit déjà l'exécutable en standalone.)
+
+================================================================================
+              ÉTAPE 4 : CONFIGURATION DU FICHIER .env
+================================================================================
+
+Le fichier .env contient les informations secrètes du bot.
+
+1. Ouvre le dossier "Offivexbot" dans l'Explorateur de fichiers
+
+2. Crée un nouveau fichier texte :
+   - Clic droit > Nouveau > Document texte
+   - Nomme-le exactement : .env
+   - Windows va demander confirmation pour l'extension, clique "Oui"
+   
+   Si Windows ne te laisse pas créer un fichier .env :
+   - Ouvre le Bloc-notes
+   - Fichier > Enregistrer sous
+   - Dans "Type", choisis "Tous les fichiers (*.*)"
+   - Nom du fichier : .env
+   - Enregistre dans le dossier Offivexbot
+
+3. Ouvre le fichier .env et écris ceci :
+
+--------------------------------------------------------------------------------
+TOKEN=ton_token_discord_ici
+CLIENT_ID=id_de_ton_application
+GUILD_ID=id_de_ton_serveur
+PNL_API_TOKEN=token_hex_64_chars_partage_avec_le_backend
+--------------------------------------------------------------------------------
+
+4. Remplace les valeurs :
+
+   TOKEN = Le token que tu as copié à l'étape 2.2
+
+   CLIENT_ID = Va sur Discord Developer Portal > Ton application >
+               Copie "APPLICATION ID" dans l'onglet "General Information"
+
+   GUILD_ID = Dans Discord, active le Mode Développeur :
+              Paramètres > Avancé > Mode développeur > Activer
+              Puis clic droit sur ton serveur > "Copier l'identifiant du serveur"
+
+   PNL_API_TOKEN = Le même token hex 32 octets que celui défini côté
+                   backend Offivex (`OFFIVEX_BOT_PNL_TOKEN`). Génère-le
+                   avec `openssl rand -hex 32`. Optionnel — laisse vide
+                   pour désactiver l'auto-post PNL.
+
+5. Exemple de fichier .env complet :
+
+--------------------------------------------------------------------------------
+TOKEN=MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.GabcDE.abcdefghijklmnopqrstuvwxyz123456
+CLIENT_ID=1234567890123456789
+GUILD_ID=9876543210987654321
+PNL_API_TOKEN=7fa8e5d2c1b9a4f3e6d8b7c5a2f9e1d4b8c6a3f7e5d9b2c4a6f8e1d3b5c7a9f2
+--------------------------------------------------------------------------------
+
+⚠️ IMPORTANT : Ne partage JAMAIS ton fichier .env !
+
+================================================================================
+              ÉTAPE 5 : CONFIGURATION DU CONFIG.JSON
+================================================================================
+
+Le fichier config.json contient les paramètres du bot.
+Il est déjà configuré, mais tu dois mettre TES IDs de salons et rôles.
+
+Ouvre le fichier config.json et modifie les IDs suivants :
+
+Pour obtenir un ID de salon ou rôle :
+- Active le Mode Développeur (Paramètres Discord > Avancé > Mode développeur)
+- Clic droit sur le salon/rôle > "Copier l'identifiant"
+
+PARAMÈTRES À CONFIGURER :
+-------------------------
+
+1. SYSTÈME DE TICKETS (ticketSystem) :
+   - categoryId : ID de la catégorie où seront créés les tickets
+   - logsChannelId : ID du salon pour les logs des tickets
+   - staffRoleId : ID du rôle staff/modérateur
+
+2. AUTO-MODÉRATION (automod) :
+   - badWords : Liste des mots interdits
+   - exemptRoleIds : IDs des rôles exemptés (staff)
+   - logsChannelId : ID du salon pour les logs de modération
+
+3. BIENVENUE (welcome) :
+   - channelId : ID du salon de bienvenue
+   - defaultRoleId : ID du rôle donné aux nouveaux membres
+
+4. SUGGESTIONS :
+   - channelId : ID du salon de suggestions
+
+5. LOGS :
+   - channelId : ID du salon de logs général
+
+⚠️ CRÉE CES SALONS/RÔLES AVANT SUR TON SERVEUR DISCORD !
+
+================================================================================
+              ÉTAPE 6 : INSTALLATION DES DÉPENDANCES
+================================================================================
+
+1. Ouvre PowerShell dans le dossier du bot :
+   - Va dans le dossier "Offivexbot" avec l'Explorateur
+   - Clique sur la barre d'adresse en haut
+   - Tape "powershell" et appuie sur Entrée
+
+2. Dans PowerShell, tape cette commande :
+
+   npm install
+
+3. Attends que l'installation se termine (peut prendre quelques minutes)
+   Tu verras des messages défiler, c'est normal.
+
+4. Si tu vois des "WARN", c'est OK. 
+   Si tu vois des "ERR!", il y a un problème - va à la section Dépannage.
+
+5. Un dossier "node_modules" a été créé = c'est bon !
+
+================================================================================
+              ÉTAPE 7 : ENREGISTREMENT DES COMMANDES SLASH
+================================================================================
+
+Les commandes slash doivent être enregistrées auprès de Discord.
+
+1. Crée un fichier "deploy-commands.js" dans le dossier principal :
+
+--------------------------------------------------------------------------------
+require('dotenv').config();
+const { REST, Routes } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+const commands = [];
+const foldersPath = path.join(__dirname, 'src', 'commands');
+const commandFolders = fs.readdirSync(foldersPath);
+
+for (const folder of commandFolders) {
+    const commandsPath = path.join(foldersPath, folder);
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+        
+        if ('data' in command && 'execute' in command) {
+            commands.push(command.data.toJSON());
+            console.log(`Commande chargée: ${command.data.name}`);
+        }
+    }
+}
+
+const rest = new REST().setToken(process.env.TOKEN);
+
+(async () => {
+    try {
+        console.log(`Enregistrement de ${commands.length} commandes...`);
+
+        const data = await rest.put(
+            Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+            { body: commands },
+        );
+
+        console.log(`${data.length} commandes enregistrées avec succès !`);
+    } catch (error) {
+        console.error(error);
+    }
+})();
+--------------------------------------------------------------------------------
+
+2. Dans PowerShell (toujours dans le dossier du bot), tape :
+
+   node deploy-commands.js
+
+3. Tu dois voir :
+   "Commande chargée: ping"
+   "Commande chargée: clear"
+   ... (toutes tes commandes)
+   "X commandes enregistrées avec succès !"
+
+⚠️ Refais cette étape à chaque fois que tu ajoutes/modifies une commande !
+
+================================================================================
+              ÉTAPE 8 : LANCEMENT DU BOT
+================================================================================
+
+C'est le moment de vérité !
+
+1. Dans PowerShell (dossier du bot), tape :
+
+   node src/index.js
+
+2. Tu dois voir :
+   "Connexion à MongoDB établie"
+   "Offivex Bot#1234 est en ligne!"
+
+3. Va sur ton serveur Discord :
+   - Le bot doit être en ligne (point vert)
+   - Tape /ping pour tester une commande
+
+🎉 FÉLICITATIONS ! Ton bot fonctionne !
+
+Pour arrêter le bot : Appuie sur Ctrl + C dans PowerShell
+
+================================================================================
+              ÉTAPE 9 : UTILISATION AVEC PM2 (OPTIONNEL)
+================================================================================
+
+PM2 permet de garder le bot en ligne 24/7 et de le redémarrer automatiquement.
+Utile si tu héberges le bot sur un VPS/serveur.
+
+1. Installe PM2 globalement :
+
+   npm install -g pm2
+
+2. Lance le bot avec PM2 :
+
+   pm2 start src/index.js --name Offivex-bot
+
+3. Commandes PM2 utiles :
+
+   pm2 list                    - Voir les processus en cours
+   pm2 logs Offivex-bot       - Voir les logs du bot
+   pm2 restart Offivex-bot    - Redémarrer le bot
+   pm2 stop Offivex-bot       - Arrêter le bot
+   pm2 delete Offivex-bot     - Supprimer le processus
+
+4. Pour que le bot démarre automatiquement au démarrage du serveur :
+
+   pm2 startup
+   pm2 save
+
+================================================================================
+              ÉTAPE 10 : DÉPANNAGE / FAQ
+================================================================================
+
+PROBLÈME : "Error: Cannot find module 'xxx'"
+SOLUTION : Exécute "npm install" à nouveau
+
+---
+
+PROBLÈME : "Error: An invalid token was provided"
+SOLUTION : Vérifie que ton TOKEN dans .env est correct.
+           Va sur Discord Developer Portal et génère un nouveau token si besoin.
+
+---
+
+PROBLÈME : "MongoServerError: bad auth"
+SOLUTION : Vérifie ton mot de passe MongoDB dans l'URL.
+           Le mot de passe ne doit pas contenir de caractères spéciaux (@, :, /)
+           Ou encode-les en URL (@ = %40, : = %3A, / = %2F)
+
+---
+
+PROBLÈME : "Error: Privileged intent provided is not enabled"
+SOLUTION : Va sur Discord Developer Portal > Bot et active les 3 intents :
+           - PRESENCE INTENT
+           - SERVER MEMBERS INTENT  
+           - MESSAGE CONTENT INTENT
+
+---
+
+PROBLÈME : Les commandes slash n'apparaissent pas
+SOLUTION : 1. Vérifie que tu as bien exécuté "node deploy-commands.js"
+           2. Attends quelques minutes (Discord peut être lent)
+           3. Vérifie que CLIENT_ID et GUILD_ID sont corrects dans .env
+
+---
+
+PROBLÈME : "ENOENT: no such file or directory"
+SOLUTION : Vérifie que tu es bien dans le dossier Offivexbot quand tu
+           exécutes les commandes.
+
+---
+
+PROBLÈME : Le bot crash au démarrage
+SOLUTION : 1. Vérifie que tous les IDs dans config.json sont valides
+           2. Vérifie que le fichier .env existe et est bien rempli
+           3. Regarde le message d'erreur pour plus de détails
+
+---
+
+PROBLÈME : "Error: Used disallowed intents"
+SOLUTION : Tes intents ne sont pas activés sur Discord Developer Portal.
+           Suis l'étape 2.2 pour les activer.
+
+================================================================================
+                           COMMANDES DISPONIBLES
+================================================================================
+
+Commandes Admin :
+  /clear [nombre]          - Supprime des messages
+  /say [message]           - Fait parler le bot
+  /restartbot              - Redémarre le bot (nécessite PM2)
+  /setup-verification      - Configure le système de vérification
+
+Commandes Générales :
+  /ping                    - Vérifie si le bot répond
+  /liste                   - Affiche la liste des commandes
+  /suggest                 - Faire une suggestion
+
+Commandes Modération :
+  /configure-permissions   - Configure les permissions
+
+Commandes Tickets :
+  /setup-tickets           - Configure le système de tickets
+
+================================================================================
+                              SUPPORT
+================================================================================
+
+Si tu as besoin d'aide supplémentaire :
+- Relis attentivement chaque étape
+- Vérifie que tous tes IDs sont corrects
+- Assure-toi d'avoir créé tous les salons/rôles nécessaires
+
+Bonne chance avec ton bot Offivex ! 🎉
+
+================================================================================
+

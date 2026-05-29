@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api, ApiError } from "@/lib/api";
 import { MemeAsset, MemeMetadataTemplate } from "@/lib/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function MemeLibraryPage() {
   const [assets, setAssets] = useState<MemeAsset[]>([]);
@@ -17,6 +18,14 @@ export default function MemeLibraryPage() {
 
   // Pinning
   const [pinning, setPinning] = useState<string | null>(null);
+
+  // Delete confirmation state (shared shape for asset + metadata). Pre-
+  // refactor delete fired immediately on click — there is no undo on the
+  // IPFS pin nor on a metadata template referenced by mints already
+  // deployed, so a misclick was permanently destructive.
+  const [confirmDelete, setConfirmDelete] = useState<
+    null | { kind: "asset" | "metadata"; id: string; label: string }
+  >(null);
 
   // Metadata form
   const [showMetaForm, setShowMetaForm] = useState(false);
@@ -73,7 +82,16 @@ export default function MemeLibraryPage() {
       fetchData();
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
+    } finally {
+      setConfirmDelete(null);
     }
+  };
+  const requestDeleteAsset = (a: MemeAsset) => {
+    setConfirmDelete({
+      kind: "asset",
+      id: a.id,
+      label: a.filename ?? a.id.slice(0, 8),
+    });
   };
 
   const handlePinAsset = async (id: string) => {
@@ -119,7 +137,16 @@ export default function MemeLibraryPage() {
       fetchData();
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
+    } finally {
+      setConfirmDelete(null);
     }
+  };
+  const requestDeleteMetadata = (m: MemeMetadataTemplate) => {
+    setConfirmDelete({
+      kind: "metadata",
+      id: m.id,
+      label: m.name ?? m.symbol ?? m.id.slice(0, 8),
+    });
   };
 
   const handlePreviewJson = async (id: string) => {
@@ -148,6 +175,31 @@ export default function MemeLibraryPage() {
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">Meme Library</h1>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title={
+            confirmDelete.kind === "asset"
+              ? "Delete asset"
+              : "Delete metadata template"
+          }
+          message={
+            confirmDelete.kind === "asset"
+              ? `Permanently delete the asset "${confirmDelete.label}"? Any token using this image in its on-chain metadata will keep working, but the source file is gone and cannot be re-uploaded automatically.`
+              : `Permanently delete the metadata template "${confirmDelete.label}"? Already-minted tokens that reference its JSON URI keep working; new mints that depend on this template will fail.`
+          }
+          variant="danger"
+          confirmText="Delete"
+          onConfirm={() => {
+            if (confirmDelete.kind === "asset") {
+              void handleDeleteAsset(confirmDelete.id);
+            } else {
+              void handleDeleteMetadata(confirmDelete.id);
+            }
+          }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
 
       {error && (
         <div className="text-red-400 text-sm mb-4 bg-red-900/20 border border-red-800 rounded p-2">
@@ -248,7 +300,7 @@ export default function MemeLibraryPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleDeleteAsset(a.id)}
+                        onClick={() => requestDeleteAsset(a)}
                         className="px-2 py-1 text-xs text-red-400 hover:bg-red-900/30 rounded transition-colors"
                       >
                         Delete
@@ -387,7 +439,7 @@ export default function MemeLibraryPage() {
                             {pinningMeta === m.id ? "Pinning..." : "Pin JSON"}
                           </button>
                           <button
-                            onClick={() => handleDeleteMetadata(m.id)}
+                            onClick={() => requestDeleteMetadata(m)}
                             className="px-2 py-1 text-xs text-red-400 hover:bg-red-900/30 rounded transition-colors"
                           >
                             Delete

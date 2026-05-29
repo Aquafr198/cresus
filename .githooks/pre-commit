@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+#
+# Offivex pre-commit hook — blocks committing secrets.
+#
+# Install once per clone:
+#   git config core.hooksPath .githooks
+#
+# Checks performed on every commit:
+#
+#  1. Reject any newly-staged `.env`, `.env.local`, `.env.*.local`,
+#     `backend/.env`, `frontend/.env`, `offivexbot/.env`. These are
+#     always per-developer or per-deployment secrets and must NEVER
+#     enter the repository — even an empty / placeholder version is
+#     a footgun (next person fills it in, forgets, commits).
+#
+#  2. Scan any staged file (including .env.docker / .env.example) for
+#     content that looks like a real secret:
+#       - 12 or 24-word BIP39 phrase that is NOT the canonical test
+#         "abandon abandon … about" mnemonic (case-insensitive)
+#       - Solana private key (88-char base58) — pattern `[1-9A-HJ-NP-Za-km-z]{86,90}`
+#       - `OFFIVEX_*_TOKEN=` or `OFFIVEX_*_SEED_PHRASE=` followed by
+#         non-placeholder content (placeholders = `__SET_ME__`, empty,
+#         `your_*_here`, `abandon …`)
+#
+# Bypass intentionally (rare — e.g. checking-in a new template):
+#   git commit --no-verify
+
+set -u
+
+red()   { printf '\033[31m%s\033[0m\n' "$*"; }
+yellow(){ printf '\033[33m%s\033[0m\n' "$*"; }
+
+# Files staged for this commit (added + modified, no deletes).
+staged=$(git diff --cached --name-only --diff-filter=AM)
+[ -z "$staged" ] && exit 0
+
+BLOCK_PATHS_RE='(^|/)(\.env|\.env\.local|\.env\.[^.]+\.local|\.env\.docker\.local)$'
+ALLOW_EXAMPLES_RE='\.env(\.example|\.docker)$'
+
+violations=0
+
+while IFS= read -r f; do
+    # 1. Block per-deployment .env files entirely.
+    if [[ "$f" =~ $BLOCK_PATHS_RE ]] && [[ ! "$f" =~ $ALLOW_EXAMPLES_RE ]]; then
+        red "BLOCK: refusing to commit per-deployment file '$f'"
+        red "       (use .env.example to share the schema; keep filled values local)"
+        violations=$((violations + 1))
+        continue
+    fi
+
+    # 2. Scan the file content for secret-shaped data.
+    [ -f "$f" ] || continue
+    content=$(cat "$f")
+
+    # Look for BIP39 phrases. Only consider lines that explicitly mention
+    # a SEED_PHRASE env var to keep the false-positive rate low.
+    while IFS= read -r line; do
+        # Strip the variable-name + quotes.
+        value=$(echo "$line" | sed -E 's/^[A-Z_]+="?(.*)"?$/\1/' | tr -d '"' | tr -d "'")
+        # Whitelist: empty, placeholder, canonical test mnemonic.
+        if [[ -z "$value" ]] \
+           || [[ "$value" == "__SET_ME__" ]] \
+           || [[ "$value" == "your_"* ]] \
+           || [[ "$value" =~ ^([Aa]bandon[[:space:]]+){11}[Aa]bout$ ]]; then
+            continue
+        fi
+        # Count words. A 12 or 24-word lowercase phrase is suspicious.
+        words=$(echo "$value" | wc -w | tr -d ' ')
+        if [[ "$words" == "12" || "$words" == "24" ]]; then
+            red "BLOCK: '$f' contains what looks like a real BIP39 mnemonic on line:"
+            yellow "  $line"
+            red "       Replace with the placeholder __SET_ME__ before committing."
+            violations=$((violations + 1))
+        fi
+    done < <(echo "$content" | grep -E '_SEED_PHRASE\s*=' || true)
+
+    # Solana private key — base58 of 64 bytes is 87-88 chars.
+    if echo "$content" | grep -qE '[1-9A-HJ-NP-Za-km-z]{87,90}'; then
+        red "BLOCK: '$f' contains what looks like a Solana private key (base58)."
+        red "       Real keys must never be committed. Use the wallet manager."
+        violations=$((violations + 1))
+    fi
+
+    # API tokens with obvious "live" prefix or hex secrets.
+    if echo "$content" | grep -qE '(ofx_live_[A-Za-z0-9]{32}|\b[a-f0-9]{64}\b)'; then
+        # Allow the placeholder hex token defined in .env.example (deterministic test value).
+        if ! echo "$content" | grep -qE '^OFFIVEX_BOT_PNL_TOKEN=75dc7537'; then
+            red "BLOCK: '$f' contains what looks like a real API token or hex secret."
+            red "       Move it to a local .env (which is git-ignored)."
+            violations=$((violations + 1))
+        fi
+    fi
+done <<< "$staged"
+
+if [ "$violations" -gt 0 ]; then
+    red ""
+    red "$violations secret-leak risk(s) detected in this commit — refusing."
+    red "Re-stage with the values redacted, then commit again."
+    red "If you truly intend to commit (e.g. adding a NEW placeholder pattern),"
+    red "bypass with: git commit --no-verify"
+    exit 1
+fi
+exit 0

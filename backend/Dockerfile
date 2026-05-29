@@ -1,25 +1,27 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM rust:1.83-bookworm AS builder
+FROM rust:1.83.0-bookworm-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests first for dependency caching
 COPY Cargo.toml Cargo.lock ./
-COPY crates/cresus-server/Cargo.toml crates/cresus-server/Cargo.toml
-COPY crates/cresus-api/Cargo.toml crates/cresus-api/Cargo.toml
-COPY crates/cresus-core/Cargo.toml crates/cresus-core/Cargo.toml
-COPY crates/cresus-db/Cargo.toml crates/cresus-db/Cargo.toml
-COPY crates/cresus-crypto/Cargo.toml crates/cresus-crypto/Cargo.toml
+COPY crates/offivex-server/Cargo.toml crates/offivex-server/Cargo.toml
+COPY crates/offivex-api/Cargo.toml crates/offivex-api/Cargo.toml
+COPY crates/offivex-core/Cargo.toml crates/offivex-core/Cargo.toml
+COPY crates/offivex-db/Cargo.toml crates/offivex-db/Cargo.toml
+COPY crates/offivex-crypto/Cargo.toml crates/offivex-crypto/Cargo.toml
 
 # Create dummy source files to cache dependency compilation
-RUN mkdir -p crates/cresus-server/src && echo "fn main() {}" > crates/cresus-server/src/main.rs \
-    && mkdir -p crates/cresus-api/src && echo "pub fn lib() {}" > crates/cresus-api/src/lib.rs \
-    && mkdir -p crates/cresus-core/src && echo "pub fn lib() {}" > crates/cresus-core/src/lib.rs \
-    && mkdir -p crates/cresus-db/src && echo "pub fn lib() {}" > crates/cresus-db/src/lib.rs \
-    && mkdir -p crates/cresus-crypto/src && echo "pub fn lib() {}" > crates/cresus-crypto/src/lib.rs
+RUN mkdir -p crates/offivex-server/src && echo "fn main() {}" > crates/offivex-server/src/main.rs \
+    && mkdir -p crates/offivex-api/src && echo "pub fn lib() {}" > crates/offivex-api/src/lib.rs \
+    && mkdir -p crates/offivex-core/src && echo "pub fn lib() {}" > crates/offivex-core/src/lib.rs \
+    && mkdir -p crates/offivex-db/src && echo "pub fn lib() {}" > crates/offivex-db/src/lib.rs \
+    && mkdir -p crates/offivex-crypto/src && echo "pub fn lib() {}" > crates/offivex-crypto/src/lib.rs
 
 # Build dependencies only (cached unless Cargo.toml/Cargo.lock change)
 RUN cargo build --release --workspace 2>/dev/null || true
@@ -31,37 +33,49 @@ RUN find crates -name "*.rs" -path "*/src/*" -delete
 COPY crates/ crates/
 
 # Touch to invalidate cached build of our code (not dependencies)
-RUN touch crates/cresus-server/src/main.rs
+RUN touch crates/offivex-server/src/main.rs
 
-# Build the real binary
-RUN cargo build --release --bin cresus
+# Build the real binary (bin name `offivex` per crates/offivex-server/Cargo.toml)
+RUN cargo build --release --bin offivex
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN groupadd -r cresus && useradd -r -g cresus -m cresus
+RUN groupadd -r offivex && useradd -r -g offivex -m offivex
 
 WORKDIR /app
 
 # Copy binary
-COPY --from=builder /app/target/release/cresus /app/cresus
+COPY --from=builder /app/target/release/offivex /app/offivex
 
-# Copy migrations (embedded at runtime by cresus-db)
-COPY crates/cresus-db/migrations/ /app/migrations/
+# Copy migrations (embedded at runtime by offivex-db)
+COPY crates/offivex-db/migrations/ /app/migrations/
 
 # Create data directory
-RUN mkdir -p /app/data/backups && chown -R cresus:cresus /app
+RUN mkdir -p /app/data/backups && chown -R offivex:offivex /app
 
-USER cresus
+USER offivex
 
 EXPOSE 3001
 
-ENV CRESUS_HOST=0.0.0.0
-ENV CRESUS_PORT=3001
-ENV CRESUS_DB_PATH=/app/data/cresus.db
-ENV CRESUS_LOG_LEVEL=info
+# Declared volume — signals orchestrators (compose, k8s) that this path must
+# be persisted across container restarts. Compose already mounts it.
+VOLUME ["/app/data"]
 
-CMD ["/app/cresus"]
+ENV OFFIVEX_HOST=0.0.0.0 \
+    OFFIVEX_PORT=3001 \
+    OFFIVEX_DB_PATH=/app/data/offivex.db \
+    OFFIVEX_LOG_LEVEL=info
+
+# Image-level healthcheck (orchestrator-portable). `/api/v1/health` is the
+# cheapest endpoint: no DB query, no Solana RPC. Matches docker-compose's
+# service healthcheck so a `docker run` (no compose) also reports health.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=15s \
+    CMD wget -qO- http://localhost:3001/api/v1/health || exit 1
+
+CMD ["/app/offivex"]

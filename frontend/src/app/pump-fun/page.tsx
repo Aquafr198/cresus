@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { api, ApiError } from "@/lib/api";
-import { Wallet } from "@/lib/types";
+import { useSWR } from "@/lib/swr";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useClaimActiveMint } from "@/components/launch/LaunchContext";
 
 interface PumpFunLaunch {
   id: string;
@@ -24,9 +25,15 @@ interface PumpFunLaunch {
 
 export default function PumpFunPage() {
   const toast = useToast();
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [launches, setLaunches] = useState<PumpFunLaunch[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Shared SWR keys with /wallets etc. for instant nav.
+  const wSwr = useSWR("wallets.list", () => api.wallets.list().then((r) => r.data));
+  const lSwr = useSWR(
+    "trading.pumpFun.list",
+    () => api.trading.pumpFun.list().then((r) => r.data),
+  );
+  const wallets = wSwr.data ?? [];
+  const launches: PumpFunLaunch[] = lSwr.data ?? [];
+  const loading = wSwr.isLoading || lSwr.isLoading;
   const [creating, setCreating] = useState(false);
   const [launching, setLaunching] = useState<string | null>(null);
 
@@ -41,28 +48,97 @@ export default function PumpFunPage() {
   const [telegram, setTelegram] = useState("");
   const [website, setWebsite] = useState("");
 
+  // Auto-select first wallet once SWR loads it.
   useEffect(() => {
-    loadData();
+    if (wallets.length > 0 && !selectedWallet) {
+      setSelectedWallet(wallets[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets.length]);
+
+  // Task prefill — populated by /tasks when the user executes a saved
+  // Pump-Fun template. We re-fill the form then clear sessionStorage so
+  // a refresh doesn't double-apply the template.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const KEY = "offivex.task-prefill.pump_fun_template";
+    const raw = window.sessionStorage.getItem(KEY);
+    if (!raw) return;
+    try {
+      const blob = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof blob.tokenName === "string") setTokenName(blob.tokenName);
+      if (typeof blob.tokenSymbol === "string") setTokenSymbol(blob.tokenSymbol);
+      if (typeof blob.tokenDescription === "string")
+        setTokenDescription(blob.tokenDescription);
+      if (typeof blob.imageUrl === "string") setImageUrl(blob.imageUrl);
+      if (typeof blob.selectedWallet === "string")
+        setSelectedWallet(blob.selectedWallet);
+      if (typeof blob.initialBuySol === "string")
+        setInitialBuySol(blob.initialBuySol);
+      if (typeof blob.twitter === "string") setTwitter(blob.twitter);
+      if (typeof blob.telegram === "string") setTelegram(blob.telegram);
+      if (typeof blob.website === "string") setWebsite(blob.website);
+      toast.info("Template loaded — review and create the launch", 4000);
+    } catch {
+      /* corrupt blob — ignore */
+    } finally {
+      window.sessionStorage.removeItem(KEY);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadData = async () => {
+  const handleSaveAsTask = async () => {
+    const label =
+      window.prompt(
+        "Name this template (optional — shown on /tasks)",
+        tokenName || tokenSymbol || "Pump.fun template",
+      ) ?? undefined;
     try {
-      setLoading(true);
-      const [walletsRes, launchesRes] = await Promise.all([
-        api.wallets.list(),
-        api.trading.pumpFun.list(),
-      ]);
-      setWallets(walletsRes.data);
-      setLaunches(launchesRes.data);
-      if (walletsRes.data.length > 0 && !selectedWallet) {
-        setSelectedWallet(walletsRes.data[0].id);
-      }
+      await api.tasks.create({
+        task_type: "pump_fun_template",
+        label,
+        config_blob: {
+          tokenName,
+          tokenSymbol,
+          tokenDescription,
+          imageUrl,
+          selectedWallet,
+          initialBuySol,
+          twitter,
+          telegram,
+          website,
+        },
+      });
+      toast.success("Saved as template — see /tasks", 4000);
     } catch (e) {
-      toast.error("Failed to load data");
-    } finally {
-      setLoading(false);
+      const msg = e instanceof ApiError ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`, 6000);
     }
   };
+
+  // Surface SWR errors via toast (this page doesn't have a banner pattern).
+  useEffect(() => {
+    if (wSwr.error || lSwr.error) toast.error("Failed to load data");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wSwr.error, lSwr.error]);
+
+  // Called after create / launch to re-fetch in background.
+  const loadData = () => {
+    void wSwr.mutate();
+    void lSwr.mutate();
+  };
+
+  // Quick-sell focus: claim the most recent launch that has a confirmed mint
+  // address. Pump.fun launches go through stages — only `launched`/`buying`
+  // statuses have a token_mint resolved on-chain.
+  const focusMint =
+    launches.find((l) => l.token_mint && l.status === "launched")?.token_mint ||
+    launches.find((l) => l.token_mint)?.token_mint ||
+    null;
+  const focusSymbol =
+    (focusMint && launches.find((l) => l.token_mint === focusMint)?.token_symbol) ||
+    null;
+  useClaimActiveMint(focusMint, focusSymbol);
 
   const handleCreateLaunch = async () => {
     if (!tokenName.trim() || !tokenSymbol.trim() || !selectedWallet) {
@@ -300,13 +376,23 @@ export default function PumpFunPage() {
               </div>
             </div>
 
-            <button
-              onClick={handleCreateLaunch}
-              disabled={creating || !tokenName.trim() || !tokenSymbol.trim()}
-              className="mt-6 w-full px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-all"
-            >
-              {creating ? "Creating..." : "Create Launch"}
-            </button>
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={handleCreateLaunch}
+                disabled={creating || !tokenName.trim() || !tokenSymbol.trim()}
+                className="flex-1 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-all"
+              >
+                {creating ? "Creating..." : "Create Launch"}
+              </button>
+              <button
+                onClick={handleSaveAsTask}
+                disabled={!tokenName.trim() || !tokenSymbol.trim()}
+                title="Save current config as a reusable template (see /tasks)"
+                className="px-4 py-3 rounded-lg bg-offivex-purple/15 hover:bg-offivex-purple/25 disabled:opacity-50 text-sm font-semibold text-offivex-purple-light transition-colors"
+              >
+                Save as Task
+              </button>
+            </div>
           </div>
 
           {/* Launch History */}

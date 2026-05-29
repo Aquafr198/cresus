@@ -10,9 +10,21 @@ import type {
   DistributionTransfer,
   WalletProfile,
   VanityTask,
+  LaunchDashboardData,
 } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:3001/api/v1";
+
+/// localStorage slot for the user API key. Promoted to the top of the file
+/// (was buried in the "Phase 6 minimal" section) because EVERY data-plane
+/// fetch needs it — the backend's `require_api_key` middleware rejects any
+/// `/api/v1/*` call without `Authorization: Bearer ofx_live_...`.
+export const USER_API_KEY_STORAGE = "offivex_api_key";
+
+function getUserApiKey(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(USER_API_KEY_STORAGE);
+}
 
 class ApiError extends Error {
   status: number;
@@ -24,10 +36,12 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const apiKey = getUserApiKey();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (options?.headers) Object.assign(headers, options.headers as Record<string, string>);
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -38,11 +52,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function uploadFile<T>(path: string, file: File): Promise<T> {
+  const apiKey = getUserApiKey();
   const form = new FormData();
   form.append("file", file);
+  const headers: Record<string, string> = {};
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     body: form,
+    headers,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -75,9 +93,80 @@ export interface DashboardStats {
   meme_assets: number;
 }
 
+export interface ReferralReferee {
+  id: string;
+  telegram: string;
+  plan: "Monthly" | "Yearly";
+  status: "active" | "expired" | "pending";
+  earnedPerCycle: number;
+  joinedAt: string;
+}
+
+export interface ReferralStats {
+  code: string;
+  activeReferees: number;
+  earningsThisMonth: number;
+  earningsTotal: number;
+  pendingCredit: number;
+  nextBillCalc: {
+    dueAmount: number;
+    appliedCredit: number;
+    netAmount: number;
+    carryForward: number;
+  };
+  referees: ReferralReferee[];
+}
+
+// Mock for Sprint 1 — replaced by real GET /api/v1/referral/stats in Sprint 2.
+const MOCK_REFERRAL: ReferralStats = {
+  code: "OFX-A3B7C9",
+  activeReferees: 5,
+  earningsThisMonth: 850,
+  earningsTotal: 4200,
+  pendingCredit: 1250,
+  nextBillCalc: { dueAmount: 1000, appliedCredit: 1000, netAmount: 0, carryForward: 250 },
+  referees: [
+    { id: "1", telegram: "@memecaster_sol", plan: "Yearly",  status: "active", earnedPerCycle: 700, joinedAt: "2026-04-12" },
+    { id: "2", telegram: "@0xLaunchPad",    plan: "Monthly", status: "active", earnedPerCycle: 100, joinedAt: "2026-04-22" },
+    { id: "3", telegram: "@solana_chad",    plan: "Monthly", status: "active", earnedPerCycle: 100, joinedAt: "2026-05-03" },
+    { id: "4", telegram: "@nft_alpha",      plan: "Yearly",  status: "active", earnedPerCycle: 700, joinedAt: "2026-05-10" },
+    { id: "5", telegram: "@pump_dev",       plan: "Monthly", status: "active", earnedPerCycle: 100, joinedAt: "2026-05-18" },
+  ],
+};
+
+// ─── Stats history (Bloc B — Kinesis dashboard) ──────────────────────────
+
+export interface StatsReport {
+  current: number;
+  previous: number;
+  delta_pct: number;
+  sparkline: number[];
+}
+
+export interface MintHistoryPoint {
+  day: string;
+  count: number;
+}
+
+export interface EarningsReport {
+  last_30d_cents: number;
+  today_cents: number;
+  sparkline: number[];
+}
+
+export interface StatsHistoryView {
+  period_days: number;
+  coin_report: StatsReport;
+  volume_report: StatsReport;
+  earnings: EarningsReport;
+  mint_history: MintHistoryPoint[];
+}
+
 export const api = {
   health: () => request<{ status: string; cluster?: string; version?: string }>("/health"),
   stats: () => request<ApiResponse<DashboardStats>>("/stats"),
+  statsHistory: (period: number = 30) =>
+    request<ApiResponse<StatsHistoryView>>(`/stats/history?period=${period}`),
 
   auth: {
     status: () => request<AuthStatus>("/auth/status"),
@@ -183,13 +272,37 @@ export const api = {
       symbol: string;
       decimals?: number;
       supply: number;
+      /// Use this OR the inline social fields below, never both.
       metadata_uri?: string;
       creator_wallet_id: string;
+      // ── Inline metadata (auto-pinned to IPFS) ──
+      description?: string;
+      image_uri?: string;
+      twitter?: string;
+      telegram?: string;
+      website?: string;
+      /// Opt-in: keep the freeze authority on the creator wallet. Default
+      /// `false` — RugCheck/DEXTools flag unrevoked freeze authority as a
+      /// critical anti-rug signal.
+      keep_freeze_authority?: boolean;
+      /// Default `true`: append a `SetAuthority(None)` instruction at the
+      /// end of the mint tx so the supply is locked atomically with the
+      /// initial mint. Set `false` for a mutable supply (rare).
+      revoke_mint_authority?: boolean;
     }) =>
       request<ApiResponse<Token & { tx_signature: string }>>("/tokens/mint", {
         method: "POST",
         body: JSON.stringify(params),
       }),
+    /// Revoke the mint authority on an already-minted token. Used after
+    /// the fact (vs `revoke_mint_authority: true` on `mint`, which does
+    /// it atomically during initial mint). Requires the creator wallet's
+    /// keypair to still be in the vault.
+    revokeMintAuthority: (mint: string) =>
+      request<ApiResponse<{ mint: string; signature: string }>>(
+        `/tokens/${encodeURIComponent(mint)}/revoke-mint-authority`,
+        { method: "POST" },
+      ),
     cloneInfo: (mint_address: string) =>
       request<ApiResponse<{
         mint_address: string;
@@ -227,7 +340,15 @@ export const api = {
       request<ApiResponse<{ id: string; ipfs_cid: string; pinned_uri: string }>>(`/meme-library/assets/${id}/pin`, {
         method: "POST",
       }),
-    serveAssetUrl: (id: string) => `${BASE_URL}/meme-library/assets/${id}/serve`,
+    /// Returns a same-origin path (NOT the absolute BASE_URL) so the browser
+    /// treats this as a first-party resource. `<img src>` doesn't send the
+    /// Authorization header, so the asset endpoint is unauthenticated by
+    /// design — but the absolute `http://127.0.0.1:3001/...` URL was also
+    /// being blocked by our img-src CSP (`'self' data: blob: https:` —
+    /// no `http:` allowance). Routing through Next.js's `/api/v1/*` rewrite
+    /// fixes both at once: same-origin from the browser's POV, proxied to
+    /// the Rust backend transparently.
+    serveAssetUrl: (id: string) => `/api/v1/meme-library/assets/${id}/serve`,
 
     listMetadata: () =>
       request<ApiResponse<MemeMetadataTemplate[]>>("/meme-library/metadata"),
@@ -266,6 +387,11 @@ export const api = {
       base_lot_size?: number;
       quote_lot_size?: number;
       snipe_buys: Array<{ wallet_id: string; sol_amount: number }>;
+      creator_reserve_tokens?: number;
+      /// `burn` (default, anti-rug — passes DEXTools/RugCheck "LP Locked"
+      /// audit) or `keep` (legacy — creator keeps LP tokens, can later
+      /// lock/migrate them off-platform).
+      lp_disposition?: "burn" | "keep";
     }) =>
       request<ApiResponse<{
         bundle_id: string;
@@ -319,10 +445,39 @@ export const api = {
         method: "POST",
         body: JSON.stringify(params),
       }),
-    execute: (id: string) =>
-      request<ApiResponse<{ distribution_id: string; status: string }>>(`/distributions/${id}/execute`, {
-        method: "POST",
-      }),
+    /** Trigger execution. Optional `chain_buy` config orchestrates a
+     *  coordinated Jupiter buy on every target wallet right after the SOL
+     *  distribution lands — closing the Kinesis-style "fonds ET achats"
+     *  flow in one server-side step. Results land in the distribution row's
+     *  `result_json.chain_buy` block, polled via `.get(id)`.
+     *
+     *  `buy_pattern` controls the anti-bubble shape of the buys:
+     *    - parallel   : all at once (fast, NOT anti-bubble)
+     *    - staggered  : random delay between each (default, recommended)
+     *    - batched    : Layered-style groups with inter-batch delay
+     *
+     *  `percent_variance` (0–50) adds ±N points of randomness on each
+     *  wallet's % spend so the "buy size fingerprint" doesn't repeat. */
+    execute: (
+      id: string,
+      chain_buy?: {
+        mint: string;
+        percent: number;
+        slippage_bps: number;
+        buy_pattern?:
+          | { mode: "parallel" }
+          | { mode: "staggered"; min_delay_ms: number; max_delay_ms: number }
+          | { mode: "batched"; batch_size: number; batch_delay_ms: number };
+        percent_variance?: number;
+      },
+    ) =>
+      request<ApiResponse<{ distribution_id: string; status: string; chain_buy: boolean }>>(
+        `/distributions/${id}/execute`,
+        {
+          method: "POST",
+          body: JSON.stringify(chain_buy ? { chain_buy } : {}),
+        },
+      ),
     resume: (id: string, retryFailed = false) =>
       request<ApiResponse<{ distribution_id: string; status: string }>>(`/distributions/${id}/resume`, {
         method: "POST",
@@ -372,6 +527,35 @@ export const api = {
       slippage_bps: number;
     }) =>
       request<ApiResponse<{ signature: string }>>("/trading/swap", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+
+    quickSell: (data: {
+      mint: string;
+      percent: number; // 1–100
+      slippage_bps: number;
+      /** Optional whitelist of wallet IDs to sell from. Omit for "all
+       *  holders" (the legacy F4/F5 keybind behaviour). */
+      wallet_ids?: string[];
+    }) =>
+      request<
+        ApiResponse<{
+          mint: string;
+          percent: number;
+          total_wallets: number;
+          successful: number;
+          failed: number;
+          elapsed_ms: number;
+          results: Array<{
+            wallet_id: string;
+            public_key: string;
+            token_amount: number;
+            signature: string | null;
+            error: string | null;
+          }>;
+        }>
+      >("/trading/quick-sell", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -535,6 +719,76 @@ export const api = {
       request<ApiResponse<string[]>>("/monitor/subscriptions"),
   },
 
+  launches: {
+    /** Bundled "Viewing mint" payload — token details, per-wallet holders,
+     *  tasks filtered by mint, bonding curve (if PF), recent activity. One
+     *  HTTP round-trip; server-side parallel fan-out. */
+    dashboard: (mint: string) =>
+      request<ApiResponse<LaunchDashboardData>>(
+        `/launches/${encodeURIComponent(mint)}/dashboard`,
+      ),
+  },
+
+  /** Launch task templates — Kinesis-style "save now, execute later" for
+   *  Mint Task / Bundle Task / Pump-Fun Task. The `config_blob` is opaque
+   *  JSON owned by the caller (the launch page that saved it). The
+   *  /execute endpoint just returns the blob — the calling page is
+   *  responsible for re-injecting it into the canonical launch endpoint. */
+  tasks: {
+    list: () =>
+      request<
+        ApiResponse<
+          Array<{
+            id: string;
+            task_type: string;
+            status: string;
+            config_blob: Record<string, unknown>;
+            created_at: number;
+            updated_at: number;
+          }>
+        >
+      >("/tasks"),
+    create: (data: {
+      task_type: "mint_template" | "bundle_template" | "pump_fun_template";
+      config_blob: Record<string, unknown>;
+      label?: string;
+    }) =>
+      request<
+        ApiResponse<{
+          id: string;
+          task_type: string;
+          status: string;
+          config_blob: Record<string, unknown>;
+          created_at: number;
+          updated_at: number;
+        }>
+      >("/tasks", { method: "POST", body: JSON.stringify(data) }),
+    get: (id: string) =>
+      request<
+        ApiResponse<{
+          id: string;
+          task_type: string;
+          status: string;
+          config_blob: Record<string, unknown>;
+          created_at: number;
+          updated_at: number;
+        }>
+      >(`/tasks/${encodeURIComponent(id)}`),
+    execute: (id: string) =>
+      request<
+        ApiResponse<{
+          task_id: string;
+          task_type: string;
+          config_blob: Record<string, unknown>;
+        }>
+      >(`/tasks/${encodeURIComponent(id)}/execute`, { method: "POST" }),
+    delete: (id: string) =>
+      request<ApiResponse<{ deleted: boolean }>>(
+        `/tasks/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      ),
+  },
+
   audit: {
     list: (limit = 50, offset = 0) =>
       request<ApiResponse<Array<{
@@ -546,6 +800,481 @@ export const api = {
         created_at: number;
       }>>>(`/audit?limit=${limit}&offset=${offset}`),
   },
+
+  // Referral program — mock for Sprint 1.
+  // Sprint 2 will swap this implementation for a real `request<ApiResponse<ReferralStats>>("/referral/stats")` call.
+  referral: {
+    stats: async (): Promise<ApiResponse<ReferralStats>> => {
+      // Simulate a network round-trip so the loading UX is testable.
+      await new Promise((r) => setTimeout(r, 150));
+      return { success: true, data: MOCK_REFERRAL };
+    },
+  },
+
+  // Admin panel (Phase 4 user-management)
+  admin: adminApi(),
 };
+
+// ─── Admin API namespace ────────────────────────────────────────────────
+// Auth via Bearer token in `localStorage.offivex_admin_token`.
+// `login()` is unauthenticated; everything else requires the token.
+
+export const ADMIN_TOKEN_KEY = "offivex_admin_token";
+
+function getAdminToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+async function adminRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAdminToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (options?.headers) Object.assign(headers, options.headers as Record<string, string>);
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new ApiError(res.status, body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export interface AdminApplyView {
+  id: string;
+  telegram: string;
+  email: string;
+  project: string;
+  plan_pref: string | null;
+  status: "pending" | "approved" | "rejected";
+  submitted_at: number;
+  decided_at: number | null;
+  decided_by_admin_id: string | null;
+  user_id_after_approval: string | null;
+  ip: string | null;
+  notes: string | null;
+}
+
+export interface AdminDashboardStats {
+  pending_applies: number;
+  active_users: number;
+}
+
+export interface AdminLoginResult {
+  token: string;
+  expires_at: number;
+  admin: { id: string; username: string };
+}
+
+function adminApi() {
+  return {
+    login: (username: string, password: string) =>
+      adminRequest<ApiResponse<AdminLoginResult>>("/admin/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      }),
+
+    logout: () =>
+      adminRequest<{ success: boolean }>("/admin/logout", { method: "POST" }),
+
+    me: () =>
+      adminRequest<ApiResponse<{ id: string; username: string }>>("/admin/me"),
+
+    stats: () => adminRequest<ApiResponse<AdminDashboardStats>>("/admin/stats"),
+
+    listApplies: (status: "pending" | "approved" | "rejected" | "all" = "pending") =>
+      adminRequest<ApiResponse<AdminApplyView[]>>(
+        `/admin/applies?status=${encodeURIComponent(status)}`
+      ),
+
+    approveApply: (id: string) =>
+      adminRequest<ApiResponse<{ apply_id: string; user_id: string; user_already_existed: boolean }>>(
+        `/admin/applies/${encodeURIComponent(id)}/approve`,
+        { method: "POST" }
+      ),
+
+    rejectApply: (id: string, notes: string) =>
+      adminRequest<ApiResponse<{ apply_id: string }>>(
+        `/admin/applies/${encodeURIComponent(id)}/reject`,
+        {
+          method: "POST",
+          body: JSON.stringify({ notes }),
+        }
+      ),
+
+    // Phase 5.5+5.8 — admin creates an invoice for a user (after apply approval)
+    createInvoice: (userId: string, planSlug: string) =>
+      adminRequest<ApiResponse<InvoiceCreatedView>>(
+        `/admin/users/${encodeURIComponent(userId)}/invoices`,
+        {
+          method: "POST",
+          body: JSON.stringify({ plan_slug: planSlug }),
+        }
+      ),
+
+    // Phase 5.8 — admin payments list (with optional status filter)
+    listPayments: (status?: PaymentStatusFilter) =>
+      adminRequest<ApiResponse<AdminPaymentView[]>>(
+        `/admin/payments${status && status !== "all" ? `?status=${encodeURIComponent(status)}` : ""}`
+      ),
+
+    // ─── Section 16 — admin user management A→Z ──────────────────────────
+    listUsers: (q?: string, status?: "all" | "active" | "suspended") => {
+      const params = new URLSearchParams();
+      if (q && q.trim()) params.set("q", q.trim());
+      if (status && status !== "all") params.set("status", status);
+      const qs = params.toString();
+      return adminRequest<ApiResponse<AdminUserListView[]>>(
+        `/admin/users${qs ? `?${qs}` : ""}`
+      );
+    },
+
+    getUserDetail: (userId: string) =>
+      adminRequest<ApiResponse<AdminUserDetailView>>(
+        `/admin/users/${encodeURIComponent(userId)}`
+      ),
+
+    updateUser: (
+      userId: string,
+      body: { status?: "active" | "suspended"; notes?: string }
+    ) =>
+      adminRequest<ApiResponse<AdminUserDetailView>>(
+        `/admin/users/${encodeURIComponent(userId)}`,
+        { method: "PATCH", body: JSON.stringify(body) }
+      ),
+
+    grantAccess: (userId: string, planSlug: "monthly" | "yearly") =>
+      adminRequest<ApiResponse<GrantAccessResult>>(
+        `/admin/users/${encodeURIComponent(userId)}/grant`,
+        { method: "POST", body: JSON.stringify({ plan_slug: planSlug }) }
+      ),
+
+    rotateKey: (userId: string) =>
+      adminRequest<ApiResponse<RotateKeyResult>>(
+        `/admin/users/${encodeURIComponent(userId)}/rotate-key`,
+        { method: "POST" }
+      ),
+
+    revokeKey: (userId: string) =>
+      adminRequest<ApiResponse<{ revoked: number }>>(
+        `/admin/users/${encodeURIComponent(userId)}/revoke-key`,
+        { method: "POST" }
+      ),
+    /// Rotate the wallet vault master password. Backend re-encrypts the
+    /// seed phrase + every wallet secret in a single transaction. Requires
+    /// the vault to be currently unlocked.
+    changeMasterPassword: (currentPassword: string, newPassword: string) =>
+      adminRequest<{ success: boolean }>(
+        "/admin/master-password/change",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+          }),
+        }
+      ),
+  };
+}
+
+// ─── Section 16 — admin user management types ───────────────────────────
+
+export interface SubSummary {
+  plan_slug: string;
+  plan_name: string;
+  status: string;
+  expires_at: number | null;
+}
+
+export interface AdminUserListView {
+  id: string;
+  email: string;
+  telegram: string | null;
+  status: string;
+  created_at: number;
+  active_subscription: SubSummary | null;
+  active_api_key_prefix: string | null;
+}
+
+export interface AdminUserSubView {
+  id: string;
+  plan_slug: string;
+  plan_name: string;
+  status: string;
+  started_at: number | null;
+  expires_at: number | null;
+  current_payment_id: string | null;
+  created_at: number;
+}
+
+export interface AdminUserApiKeyView {
+  id: string;
+  key_prefix: string;
+  status: string;
+  created_at: number;
+  last_used_at: number | null;
+  revoked_at: number | null;
+  revoked_by_admin_id: string | null;
+}
+
+export interface AdminUserDetailView {
+  user: {
+    id: string;
+    email: string;
+    telegram: string | null;
+    status: string;
+    created_at: number;
+    created_from_apply_id: string | null;
+    notes: string | null;
+  };
+  apply_origin: AdminApplyView | null;
+  subscriptions: AdminUserSubView[];
+  payments: AdminPaymentView[];
+  api_keys: AdminUserApiKeyView[];
+  audit_log: Array<{
+    id: number;
+    action: string;
+    detail: string;
+    wallet_id: string | null;
+    tx_signature: string | null;
+    created_at: number;
+    admin_id: string | null;
+    user_id: string | null;
+    ip: string | null;
+  }>;
+}
+
+export interface GrantAccessResult {
+  /// Plaintext key returned ONLY if a new key was generated. Null if user
+  /// already had an active key (we extend the sub but preserve the existing key).
+  api_key_plaintext: string | null;
+  key_prefix: string;
+  subscription: SubSummary;
+  new_key_revealed: boolean;
+}
+
+export interface RotateKeyResult {
+  api_key_plaintext: string;
+  key_prefix: string;
+}
+
+// ─── Phase 5.7 — public invoice + status (no auth, invoice_id IS the auth) ─
+
+export interface InvoicePublicView {
+  invoice_id: string;
+  status: "pending" | "confirming" | "confirmed" | "expired" | "underpaid" | "failed";
+  address: string | null;
+  amount_lamports: number | null;
+  amount_sol_str: string | null;
+  amount_usd_cents: number;
+  sol_usd_rate_cents: number | null;
+  expires_at: number | null;
+  plan_slug: string;
+  plan_name: string;
+}
+
+export interface InvoiceStatusView {
+  status: InvoicePublicView["status"];
+  confirmed_at: number | null;
+  tx_hash: string | null;
+  /// Plaintext API key revealed ONCE at first read post-confirm. NULL on
+  /// subsequent calls (consumed atomically server-side).
+  api_key: string | null;
+}
+
+export interface InvoiceCreatedView {
+  invoice_id: string;
+  address: string;
+  amount_lamports: number;
+  amount_sol_str: string;
+  amount_usd_cents: number;
+  sol_usd_rate_cents: number;
+  expires_at: number;
+  plan_slug: string;
+  plan_name: string;
+}
+
+async function publicRequest<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new ApiError(res.status, body.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ─── User API surface types ───────────────────────────────────────────────
+// (USER_API_KEY_STORAGE + getUserApiKey moved to the top — used by every
+// data-plane call, not just /user/me. `userRequest` kept as an alias to
+// `request` for backward-compat with existing call sites.)
+
+export interface UserMeSubscription {
+  plan_slug: string;
+  plan_name: string;
+  status: string;
+  started_at: number | null;
+  expires_at: number | null;
+}
+
+export interface UserMeView {
+  id: string;
+  email: string;
+  telegram: string | null;
+  status: string;
+  api_key_prefix: string;
+  subscription: UserMeSubscription | null;
+}
+
+/// Legacy alias kept for `userApi.me()` call sites. Now identical to
+/// `request` since the auth logic was merged into the main helper.
+async function userRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  return request<T>(path, options);
+}
+
+// ─── Admin payments type used by the namespace declaration above ──────────
+
+export type PaymentStatusFilter =
+  | "all"
+  | "pending"
+  | "confirming"
+  | "confirmed"
+  | "underpaid"
+  | "expired"
+  | "failed";
+
+export interface AdminPaymentView {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  provider: string;
+  amount_usd_cents: number;
+  amount_lamports: number | null;
+  amount_lamports_received: number | null;
+  amount_sol_str: string | null;
+  sol_usd_rate_cents: number | null;
+  status: string;
+  solana_address: string | null;
+  tx_hash: string | null;
+  created_at: number;
+  confirmed_at: number | null;
+  expires_at: number | null;
+}
+
+// ─── Attach the namespaces to `api` after the function declarations above ─
+
+(api as unknown as {
+  invoice: {
+    get: (id: string) => Promise<ApiResponse<InvoicePublicView>>;
+    status: (id: string) => Promise<ApiResponse<InvoiceStatusView>>;
+  };
+}).invoice = {
+  get: (id: string) =>
+    publicRequest<ApiResponse<InvoicePublicView>>(
+      `/pay/${encodeURIComponent(id)}`
+    ),
+  status: (id: string) =>
+    publicRequest<ApiResponse<InvoiceStatusView>>(
+      `/pay/${encodeURIComponent(id)}/status`
+    ),
+};
+
+(api as unknown as {
+  user: {
+    me: () => Promise<ApiResponse<UserMeView>>;
+  };
+}).user = {
+  me: () => userRequest<ApiResponse<UserMeView>>("/user/me"),
+};
+
+// Augment the `api` typed object so consumers get autocomplete on the new namespaces.
+// (TypeScript module-augment via interface declaration merging would require api to be
+// declared with an interface; the runtime attach above does the job at type-erasure
+// boundary. Frontend callers use `api.invoice.*` / `api.user.*` cast-free via this typing.)
+declare module "./api" {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface ApiNs {}
+}
+
+// Convenience typed accessors so callers can import these helpers explicitly
+// instead of relying on the `api` object augmentation.
+export const invoiceApi = {
+  get: (id: string) =>
+    publicRequest<ApiResponse<InvoicePublicView>>(
+      `/pay/${encodeURIComponent(id)}`
+    ),
+  status: (id: string) =>
+    publicRequest<ApiResponse<InvoiceStatusView>>(
+      `/pay/${encodeURIComponent(id)}/status`
+    ),
+};
+
+export const userApi = {
+  me: () => userRequest<ApiResponse<UserMeView>>("/user/me"),
+  billing: {
+    payments: () =>
+      userRequest<ApiResponse<UserPaymentView[]>>("/user/billing/payments"),
+    subscription: () =>
+      userRequest<ApiResponse<UserSubscriptionView | null>>(
+        "/user/billing/subscription"
+      ),
+  },
+  referral: {
+    code: () =>
+      userRequest<ApiResponse<UserReferralCodeView>>("/user/referral/code"),
+    stats: () =>
+      userRequest<ApiResponse<UserReferralStatsView>>("/user/referral/stats"),
+    list: () =>
+      userRequest<ApiResponse<UserReferralListItem[]>>("/user/referral/list"),
+  },
+};
+
+// ─── Billing (Phase 6.5) ──────────────────────────────────────────────────
+
+export interface UserPaymentView {
+  id: string;
+  plan_slug: string;
+  plan_name: string;
+  status: string;
+  amount_usd_cents: number;
+  amount_lamports: number | null;
+  amount_sol_str: string | null;
+  sol_usd_rate_cents: number | null;
+  tx_hash: string | null;
+  created_at: number;
+  confirmed_at: number | null;
+}
+
+export interface UserSubscriptionView {
+  status: string;
+  plan_slug: string;
+  plan_name: string;
+  plan_price_usd_cents: number;
+  plan_duration_days: number;
+  started_at: number | null;
+  expires_at: number | null;
+  days_remaining: number;
+  active: boolean;
+}
+
+// ─── Referral (Phase 6.5) ─────────────────────────────────────────────────
+
+export interface UserReferralCodeView {
+  code: string;
+  share_url: string;
+}
+
+export interface UserReferralStatsView {
+  total_referees: number;
+  active_referees: number;
+  total_earnings_cents: number;
+}
+
+export interface UserReferralListItem {
+  referee_id_masked: string;
+  plan_slug: string | null;
+  subscription_status: string | null;
+  joined_at: number;
+  earnings_cents: number;
+}
 
 export { ApiError };

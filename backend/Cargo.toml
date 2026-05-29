@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/cresus-server",
-    "crates/cresus-api",
-    "crates/cresus-core",
-    "crates/cresus-db",
-    "crates/cresus-crypto",
+    "crates/offivex-server",
+    "crates/offivex-api",
+    "crates/offivex-core",
+    "crates/offivex-db",
+    "crates/offivex-crypto",
 ]
 
 [workspace.package]
@@ -25,3 +25,18 @@ reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 base64 = "0.21"
 bincode = "1.3"
 dotenv = "0.15"
+
+# Audit P3 PERF-10 — production release profile tuning.
+#   - lto = "thin" : cross-crate inlining of hot paths (~5% runtime perf,
+#     ~10% binary size reduction). "thin" is the cheap variant (parallelized,
+#     ~30% slower link than no-LTO). "fat" would gain more at significant
+#     link-time cost; not worth it for our binary size.
+#   - codegen-units = 1 : forces single-unit codegen for max optimization.
+#     Slower compiles but enables more inlining.
+#   - strip = "symbols" : strip debug symbols from the final binary.
+#   - opt-level = 3 : default for release; explicit for clarity.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3

@@ -21,9 +21,13 @@ import {
   Settings,
   Lock,
   ChevronDown,
+  Gift,
+  Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { QuickSellHUD } from "@/components/launch/QuickSellHUD";
+import { PrivacyToggle } from "@/components/privacy/PrivacyToggle";
 
 interface NavItem {
   href: string;
@@ -44,6 +48,15 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
       { href: "/wallets", label: "Wallets", icon: Wallet },
+      { href: "/referral", label: "Referral", icon: Gift },
+    ],
+  },
+  {
+    title: "Launches",
+    defaultOpen: true,
+    items: [
+      { href: "/launches", label: "All launches", icon: Sparkles },
+      { href: "/tasks", label: "Tasks", icon: BookOpen },
     ],
   },
   {
@@ -117,16 +130,16 @@ function SidebarSection({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-offivex-purple/50 ${
                   isActive
-                    ? "bg-indigo-600/20 text-indigo-400 shadow-lg shadow-indigo-500/5"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-gray-800/70"
+                    ? "bg-offivex-purple/15 text-offivex-purple-light border border-offivex-purple/30"
+                    : "text-gray-400 hover:text-gray-200 hover:bg-white/[0.03]"
                 }`}
               >
                 <Icon
                   className={`w-4 h-4 flex-shrink-0 transition-colors ${
                     isActive
-                      ? "text-indigo-400"
+                      ? "text-offivex-purple-light"
                       : "text-gray-500 group-hover:text-gray-300"
                   }`}
                 />
@@ -150,20 +163,20 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside className="w-60 bg-gray-900/80 backdrop-blur-sm border-r border-gray-800/60 flex flex-col">
+    <aside className="w-60 bg-offivex-bg-surface border-r border-white/[0.06] flex flex-col">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-800/60">
+      <div className="px-5 py-5 border-b border-white/[0.06]">
         <div className="flex items-center gap-2.5">
           <Image
-            src="/logo.svg"
-            alt="Cresus"
-            width={36}
+            src="/logo.png"
+            alt="Offivex"
+            width={43}
             height={36}
-            className="rounded-lg shadow-lg shadow-blue-500/20"
+            priority
           />
           <div>
-            <h1 className="text-base font-bold text-white tracking-tight">
-              CRESUS
+            <h1 className="text-base font-display font-bold text-white tracking-wider">
+              OFFIVEX
             </h1>
             <p className="text-[10px] text-gray-500 leading-none">
               Solana Launch Platform
@@ -184,10 +197,15 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-3 border-t border-gray-800/60 space-y-2">
+      <div className="px-3 py-3 border-t border-white/[0.06] space-y-2">
+        {/* Quick-sell armed-target HUD — always visible above the lock so
+            the user knows which token F4/F5 will hit before they press. */}
+        <QuickSellHUD />
+        {/* Privacy Mode toggle — blurs sensitive values for stream/screen-share. */}
+        <PrivacyToggle />
         <button
           onClick={handleLock}
-          className="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg bg-gray-800/50 hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex items-center gap-2.5 w-full px-3 py-2 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-offivex-purple/50"
         >
           <Lock className="w-4 h-4" />
           Lock App

@@ -1,651 +1,438 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeftIcon } from "@heroicons/react/24/solid";
+import {
+  DocLayout,
+  DocSection,
+  DocCode,
+  DocCodeBlock,
+  DocTable,
+} from "../_components/DocLayout";
+import { DocCallout } from "../_components/DocCallout";
 
-export default function TutorialPage() {
+const TOC = [
+  { id: "step-1", label: "1 — Get an invite" },
+  { id: "step-2", label: "2 — Receive your API key" },
+  { id: "step-3", label: "3 — First login + master password" },
+  { id: "step-4", label: "4 — Back up your seed phrase" },
+  { id: "step-5", label: "5 — Unlock the vault" },
+  { id: "step-6", label: "6 — Create your first wallet" },
+  { id: "step-7", label: "7 — Fund the wallet" },
+  { id: "step-8", label: "8 — Generate sub-wallets" },
+  { id: "step-9", label: "9 — Anti-bubble distribution" },
+  { id: "step-10", label: "10 — Warm wallets (optional)" },
+  { id: "step-11", label: "11 — Randomize profiles (optional)" },
+  { id: "step-12", label: "12 — Prepare token assets" },
+  { id: "step-13", label: "13 — Mint the SPL token" },
+  { id: "step-14", label: "14 — Choose your launch path" },
+  { id: "step-15", label: "15 — Monitor the launch" },
+  { id: "step-16", label: "16 — Sustain activity" },
+  { id: "step-17", label: "17 — Sell strategy" },
+  { id: "step-18", label: "18 — Withdraw & lock" },
+];
+
+function Step({
+  num,
+  id,
+  title,
+  children,
+}: {
+  num: number;
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <Link
-          href="/docs"
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-all hover:gap-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg px-2 py-1"
-        >
-          <ArrowLeftIcon className="w-4 h-4" />
-          Back to Documentation
-        </Link>
+    <section id={id} className="mb-12 scroll-mt-24">
+      <div className="flex items-center gap-3 mb-4">
+        <span className="shrink-0 w-9 h-9 rounded-full bg-offivex-purple/15 border border-offivex-purple/40 text-offivex-purple-light text-sm font-bold flex items-center justify-center">
+          {num}
+        </span>
+        <h2 className="text-2xl font-semibold text-gray-100">{title}</h2>
       </div>
+      <div className="ml-12 space-y-3 text-sm text-gray-300 leading-relaxed">
+        {children}
+      </div>
+    </section>
+  );
+}
 
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">
-          Complete Tutorial: From Zero to Token Launch
-        </h1>
-        <p className="text-gray-400">
-          Follow this guide step by step to launch your first token on Solana
-          using Cresus.
+export default function MasterTutorialPage() {
+  return (
+    <DocLayout
+      eyebrow="Master tutorial"
+      title="Launch a token on Offivex, end to end"
+      intro="The full sequence: from your first login to a fully wound-down launch with proceeds back in cold storage. Every step lists what you're trying to accomplish, the exact UI actions, the things that commonly go wrong, and what to do next. Read it linearly — each step assumes the previous one is done."
+      breadcrumbs={[{ href: "/docs", label: "Documentation" }]}
+      prev={{ href: "/docs/quick-start", label: "Quick start" }}
+      next={{ href: "/docs/recipes", label: "Recipes" }}
+      toc={TOC}
+    >
+      <DocCallout variant="info" title="Before you start">
+        This tutorial assumes mainnet. If you&rsquo;re practising, switch{" "}
+        <DocCode>OFFIVEX_SOLANA_CLUSTER</DocCode> to <DocCode>devnet</DocCode>{" "}
+        and use devnet faucets — every step works identically except Pump.fun
+        and Jito bundles, which are mainnet-only.
+      </DocCallout>
+
+      <Step num={1} id="step-1" title="Get an invite">
+        <p>
+          Offivex is invite-only. Open <DocCode>/apply</DocCode> and fill the
+          form: contact info, what you want to launch, why now. The admin
+          reviews applications manually; lead time is typically 24 hours.
         </p>
-      </div>
+        <p>
+          <strong className="text-gray-100">What you&rsquo;re doing:</strong>{" "}
+          getting an account provisioned with a plan you can pay for. Without
+          this, the rest of the platform returns <DocCode>401</DocCode> on
+          everything.
+        </p>
+      </Step>
 
-      {/* Progress Overview */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-8">
-        <h2 className="text-lg font-semibold mb-4 text-indigo-400">
-          What you will learn
-        </h2>
-        <div className="grid md:grid-cols-2 gap-3">
-          {[
-            { step: "1", label: "Set up Cresus", color: "text-green-400" },
-            { step: "2", label: "Create & manage wallets", color: "text-blue-400" },
-            { step: "3", label: "Configure RPC endpoints", color: "text-purple-400" },
-            { step: "4", label: "Prepare token assets", color: "text-pink-400" },
-            { step: "5", label: "Mint your token", color: "text-amber-400" },
-            { step: "6", label: "Launch with Jito Bundle", color: "text-orange-400" },
-            { step: "7", label: "Distribute SOL (anti-bubble)", color: "text-cyan-400" },
-            { step: "8", label: "Run trading bots", color: "text-red-400" },
-          ].map((item) => (
-            <div
-              key={item.step}
-              className="flex items-center gap-3 p-2 rounded-lg bg-gray-800/50"
-            >
-              <span
-                className={`w-7 h-7 flex items-center justify-center rounded-full bg-gray-800 text-sm font-bold ${item.color}`}
-              >
-                {item.step}
-              </span>
-              <span className="text-gray-300 text-sm">{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Step num={2} id="step-2" title="Receive your API key">
+        <p>
+          Once approved, you get an email with a one-shot key reveal link.
+          The key is shown <em>once</em>. Copy it somewhere you can find it
+          again — a password manager entry called &ldquo;Offivex API key&rdquo;
+          is the easy answer.
+        </p>
+        <DocCallout variant="danger" title="If you lose it">
+          You&rsquo;ll need the admin to rotate it. There is no &ldquo;forgot
+          API key&rdquo; self-service. Save it now.
+        </DocCallout>
+      </Step>
 
-      {/* Step 1: Setup */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-green-900/30 border border-green-800 text-green-400 font-bold text-lg">
-            1
-          </span>
-          <h2 className="text-2xl font-bold text-green-400">Set Up Cresus</h2>
-        </div>
+      <Step num={3} id="step-3" title="First login + master password">
+        <p>
+          Open <DocCode>/login</DocCode>. The first prompt asks for your API
+          key — paste, submit. The second prompt asks you to{" "}
+          <strong className="text-gray-100">set a master password</strong>.
+          This is the password that unlocks your wallet vault for the rest of
+          your life on Offivex.
+        </p>
+        <p>Rules (all enforced):</p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>12+ characters</li>
+          <li>At least one uppercase, lowercase, digit, symbol</li>
+          <li>Not a previously breached password (Have-I-Been-Pwned check, k-anonymity prefix only — your full password never leaves the browser)</li>
+        </ul>
+        <p>
+          The password is run through Argon2id (64 MiB memory cost) to derive
+          the symmetric key that encrypts every wallet&rsquo;s secret. The key
+          never persists to disk.
+        </p>
+      </Step>
 
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Install Prerequisites
-            </h3>
-            <ul className="list-disc list-inside space-y-1 text-sm text-gray-400">
-              <li>
-                <strong className="text-gray-300">Rust</strong> 1.85+ —
-                <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs ml-1">
-                  curl --proto &apos;=https&apos; --tlsv1.2 -sSf https://sh.rustup.rs | sh
-                </code>
-              </li>
-              <li>
-                <strong className="text-gray-300">Node.js</strong> v20+ —
-                <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs ml-1">
-                  brew install node
-                </code>
-              </li>
-              <li>
-                <strong className="text-gray-300">OpenSSL</strong> —
-                <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs ml-1">
-                  brew install openssl pkg-config
-                </code>
-              </li>
-            </ul>
-          </div>
+      <Step num={4} id="step-4" title="Back up your seed phrase">
+        <p>
+          Immediately after setting the password, you&rsquo;re shown a 12-word
+          BIP39 seed phrase. <strong className="text-gray-100">This is
+          shown exactly once</strong>. It is the root of every wallet
+          you&rsquo;ll create here.
+        </p>
+        <p>What to do:</p>
+        <ol className="list-decimal list-inside space-y-1">
+          <li>Write it on paper, in the order shown.</li>
+          <li>Store the paper offline — safe, lockbox, metal plate (Cryptosteel etc).</li>
+          <li>
+            Do <em>not</em> photograph, screenshot, cloud-doc, or chat-app it.
+          </li>
+        </ol>
+        <DocCallout variant="warn" title="Lost-seed math">
+          Lost seed + lost password = lost wallets, permanently. Lost password
+          but kept seed = full recovery via the restore flow on{" "}
+          <DocCode>/login</DocCode>.
+        </DocCallout>
+      </Step>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Clone & Configure
-            </h3>
-            <pre className="bg-gray-950 rounded p-3 text-sm text-gray-300 overflow-x-auto">
-              <code>{`git clone <your-repo-url> cresus && cd cresus
-cp backend/.env.example backend/.env
+      <Step num={5} id="step-5" title="Unlock the vault">
+        <p>
+          You&rsquo;re now logged in but the vault is locked by default after
+          a fresh load. Click the lock badge in the header (or visit{" "}
+          <DocCode>/login</DocCode> if it&rsquo;s been a while). Enter the
+          master password.
+        </p>
+        <p>
+          The vault stays unlocked for{" "}
+          <DocCode>SESSION_TIMEOUT_SECONDS</DocCode> (default 3600). After
+          that, secret keys are zeroized in memory and you need to re-unlock.
+        </p>
+      </Step>
 
-# Edit .env with your RPC URL, Pinata keys, etc.`}</code>
-            </pre>
-          </div>
+      <Step num={6} id="step-6" title="Create your first wallet">
+        <p>
+          Navigate to <DocCode>/wallets</DocCode>. Click{" "}
+          <strong>New wallet</strong>. Give it a meaningful local name —{" "}
+          <DocCode>dev-main</DocCode> is the convention for the wallet
+          that&rsquo;ll hold your token supply and your dev SOL.
+        </p>
+        <p>
+          On submit, a fresh Ed25519 keypair is derived from your seed phrase
+          at the next free index, encrypted with the derived key, and saved
+          to SQLite. The public address appears in the list. Click the
+          Solscan button to verify the address looks right on-chain.
+        </p>
+      </Step>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Start the Servers
-            </h3>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <div className="bg-gray-800 px-3 py-1 rounded-t text-xs font-semibold text-gray-400">
-                  Terminal 1 — Backend
-                </div>
-                <pre className="bg-gray-950 rounded-b p-3 text-sm text-gray-300">
-                  <code>{`cd backend
-cargo build --workspace
-cargo run -p cresus-server`}</code>
-                </pre>
-              </div>
-              <div>
-                <div className="bg-gray-800 px-3 py-1 rounded-t text-xs font-semibold text-gray-400">
-                  Terminal 2 — Frontend
-                </div>
-                <pre className="bg-gray-950 rounded-b p-3 text-sm text-gray-300">
-                  <code>{`cd frontend
-npm install
-npm run dev`}</code>
-                </pre>
-              </div>
-            </div>
-          </div>
+      <Step num={7} id="step-7" title="Fund the wallet">
+        <p>
+          Send SOL from an exchange (or another wallet you control) to the
+          dev wallet&rsquo;s public key. Budget:
+        </p>
+        <DocTable
+          headers={["Bucket", "Why", "Typical SOL"]}
+          rows={[
+            [<>Mint + metadata</>, "Rent for mint account, metadata account, IPFS pinning is free.", "0.02"],
+            [<>OpenBook market + Raydium pool</>, "Market account rent + LP seed (separate from the LP itself).", "0.5–1.0"],
+            [<>LP seed</>, "The actual SOL that anchors the price.", "5–25"],
+            [<>Jito tip + snipe spend</>, "Block-engine tip + however much SOL you want your snipe set to spend.", "1–10"],
+            [<>Slack</>, "Fees, retries, dust.", "0.5"],
+          ]}
+        />
+        <p>
+          Confirm the deposit landed by clicking the wallet&rsquo;s Solscan
+          button after a minute. Until you see a balance there, do not move
+          to the next step.
+        </p>
+      </Step>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              First Login
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Open{" "}
-                <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">
-                  http://localhost:3000
-                </code>
-              </li>
-              <li>Create a strong master password (16+ characters recommended)</li>
-              <li>
-                <strong className="text-red-400">
-                  SAVE YOUR 12-WORD SEED PHRASE
-                </strong>{" "}
-                — write it down on paper, store in a password manager. This is
-                your only backup if you forget your password.
-              </li>
-              <li>You&apos;re now logged in and ready to go</li>
-            </ol>
-          </div>
-        </div>
-      </section>
+      <Step num={8} id="step-8" title="Generate sub-wallets">
+        <p>
+          On <DocCode>/wallets</DocCode>, click <strong>Generate
+          sub-wallets</strong> on your dev wallet. Pick a count. For a snipe
+          set, 5–20 is typical. The hard cap is 100 per call.
+        </p>
+        <p>
+          Each sub-wallet is derived from your seed at a unique index and
+          tagged with the parent&rsquo;s <DocCode>parent_id</DocCode>. They
+          inherit the same group, so you can filter to just &ldquo;the snipe
+          set&rdquo; in later screens.
+        </p>
+      </Step>
 
-      {/* Step 2: Wallets */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-900/30 border border-blue-800 text-blue-400 font-bold text-lg">
-            2
-          </span>
-          <h2 className="text-2xl font-bold text-blue-400">
-            Create & Manage Wallets
-          </h2>
-        </div>
+      <Step num={9} id="step-9" title="Anti-bubble distribution">
+        <p>
+          Open <DocCode>/distribution</DocCode>. Source = your dev wallet.
+          Targets = the sub-wallets. Total = the SOL you want your snipe set
+          to spend collectively. Variance = 20–40% (don&rsquo;t use 0 — equal
+          amounts is a tell). Min/max delay = 30s/180s.
+        </p>
+        <p>
+          (Optional) Add 1–2 hops. Each hop adds fee cost but breaks the
+          fan-out graph that chain analytics tools look for.
+        </p>
+        <p>
+          Click <strong>Preview</strong>. Sanity-check the per-wallet
+          amounts. <strong>Start</strong>. The distribution runs in the
+          background; you can leave the tab and come back. Move to the next
+          step in parallel.
+        </p>
+      </Step>
 
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Create Your Main Wallet
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link href="/wallets" className="text-blue-400 hover:underline">
-                  Wallets
-                </Link>{" "}
-                page
-              </li>
-              <li>Click &quot;Create Wallet&quot;</li>
-              <li>Give it a name (e.g., &quot;Launch Wallet&quot;)</li>
-              <li>Your wallet is created with a unique Solana address</li>
-            </ol>
-          </div>
+      <Step num={10} id="step-10" title="Warm wallets (optional)">
+        <p>
+          For high-profile launches where snipe-set wallets&rsquo; histories
+          will be inspected, open <DocCode>/warmer</DocCode>. Pick the
+          sub-wallet set. Set duration (12–48h is realistic), density (medium),
+          enable all four action types. <strong>Start</strong>.
+        </p>
+        <p>
+          The warmer runs concurrently with everything else. Don&rsquo;t
+          launch until it&rsquo;s had at least a few hours to lay down
+          activity, or you defeat the point.
+        </p>
+        <DocCallout variant="info" title="Skip if speed matters">
+          Time-sensitive launches (riding a meta) often skip warming.
+          It&rsquo;s a soft signal, not a hard requirement.
+        </DocCallout>
+      </Step>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Create Sub-Wallets (for sniping & distribution)
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>Click &quot;+ Sub-wallets&quot; on your main wallet</li>
-              <li>Choose how many (5-10 recommended for launch)</li>
-              <li>Sub-wallets are derived from the parent deterministically</li>
-            </ol>
-            <div className="bg-blue-900/20 border border-blue-800 rounded p-3 mt-3">
-              <p className="text-blue-400 text-xs">
-                <strong>Why sub-wallets?</strong> They&apos;re used for snipe buys
-                during launch and anti-bubble distribution. Each one is a
-                separate Solana wallet.
-              </p>
-            </div>
-          </div>
+      <Step num={11} id="step-11" title="Randomize profiles (optional)">
+        <p>
+          Open <DocCode>/profiles</DocCode>. Generate N profiles where
+          N = sub-wallet count. Auto-bind one-to-one. Done.
+        </p>
+        <p>
+          Profiles affect HTTP headers and UI fingerprint when bots interact
+          with external APIs from per-wallet contexts. They don&rsquo;t affect
+          the on-chain transactions themselves.
+        </p>
+      </Step>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Fund Your Wallets
-            </h3>
-            <p className="text-sm text-gray-300 mb-2">
-              Send SOL from an external wallet (Phantom, Solflare, etc.) to your
-              main wallet&apos;s public address. You can see the address and check
-              balances on the Wallets page.
-            </p>
-            <div className="bg-yellow-900/20 border border-yellow-800 rounded p-3">
-              <p className="text-yellow-400 text-xs">
-                <strong>Budget guide:</strong> For a basic launch, you&apos;ll need
-                ~15-20 SOL total: 10 SOL liquidity + 1-2 SOL for snipes + 1-2
-                SOL for fees + 2-5 SOL for bot trading.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Step num={12} id="step-12" title="Prepare token assets">
+        <p>
+          Open <DocCode>/meme-library</DocCode>. Upload your token image
+          (PNG, ≤4 MB if you might use Pump.fun, ≤10 MB otherwise). The page
+          hashes it, stores it locally, and pins it to IPFS via Pinata.
+          You&rsquo;ll see the CID once pinning completes.
+        </p>
+        <p>
+          Optionally upload variants (light/dark logo, banner). They&rsquo;ll
+          be re-usable across this and future launches.
+        </p>
+      </Step>
 
-      {/* Step 3: RPC */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-purple-900/30 border border-purple-800 text-purple-400 font-bold text-lg">
-            3
-          </span>
-          <h2 className="text-2xl font-bold text-purple-400">
-            Configure RPC Endpoints
-          </h2>
-        </div>
+      <Step num={13} id="step-13" title="Mint the SPL token">
+        <p>
+          Open <DocCode>/mint</DocCode>. Fill: name, symbol (3–8 uppercase),
+          decimals (6 unless you have a reason), supply (UI units). Pick the
+          image from the meme library. Add socials.
+        </p>
+        <p>
+          For mainnet I recommend <DocCode>revoke_mint_authority = true</DocCode>{" "}
+          unless you explicitly plan to mint more later. Burnable supply is
+          a strong signal of bad faith on screeners.
+        </p>
+        <p>
+          Click <strong>Mint</strong>. On success, the mint address appears
+          with a Solscan button. Click through and verify the metadata
+          renders before moving on.
+        </p>
+      </Step>
 
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <p className="text-sm text-gray-300 mb-3">
-              RPC endpoints are how Cresus talks to Solana. You need at least
-              one, but adding multiple gives you redundancy.
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link
-                  href="/settings"
-                  className="text-blue-400 hover:underline"
-                >
-                  Settings
-                </Link>
-              </li>
-              <li>Click &quot;Add RPC Endpoint&quot;</li>
-              <li>
-                Enter name and URL (e.g., QuickNode, Helius, or Alchemy)
-              </li>
-              <li>Click &quot;Health Check&quot; to verify connectivity</li>
-            </ol>
-            <div className="bg-green-900/20 border border-green-800 rounded p-3 mt-3">
-              <p className="text-green-400 text-xs">
-                <strong>Free option:</strong>{" "}
-                <code className="bg-gray-800 px-1 rounded">
-                  https://api.mainnet-beta.solana.com
-                </code>{" "}
-                works but is rate-limited. For production, use a paid provider.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Step num={14} id="step-14" title="Choose your launch path">
+        <p>You have two paths from here. Pick one — they&rsquo;re mutually exclusive on the same mint.</p>
 
-      {/* Step 4: Meme Library */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-pink-900/30 border border-pink-800 text-pink-400 font-bold text-lg">
-            4
-          </span>
-          <h2 className="text-2xl font-bold text-pink-400">
-            Prepare Token Assets
-          </h2>
-        </div>
+        <h3 className="text-base font-semibold text-gray-100 mt-4 mb-1">
+          14a — Sniper bundle (Raydium-native)
+        </h3>
+        <p>
+          Open <DocCode>/bundle</DocCode>. Select the mint. Set base_amount
+          (tokens to seed) and quote_amount (SOL). Add snipe entries: each
+          row pairs a sub-wallet with a SOL spend. Set the Jito tip (50k–200k
+          lamports for competitive). Confirm and launch. The whole launch
+          + snipe sequence lands in one Jito bundle.
+        </p>
 
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Upload Your Token Logo
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link
-                  href="/meme-library"
-                  className="text-blue-400 hover:underline"
-                >
-                  Meme Library
-                </Link>
-              </li>
-              <li>Click &quot;Upload&quot; and select your token logo (PNG/JPG, 512x512 or 1024x1024 recommended)</li>
-              <li>Click &quot;Pin&quot; to upload it to IPFS — you get a permanent URI</li>
-            </ol>
-          </div>
+        <h3 className="text-base font-semibold text-gray-100 mt-4 mb-1">
+          14b — Pump.fun bonding curve
+        </h3>
+        <p>
+          Open <DocCode>/pump-fun</DocCode>. Fill name, symbol, description,
+          image, socials. Optionally tick &ldquo;Buy on launch&rdquo; with a
+          small SOL amount so you get the first allocation. Submit. You&rsquo;ll
+          get the mint and the PF URL. From here the curve fills organically
+          — your only further action is monitoring.
+        </p>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Create Token Metadata
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>Go to the Metadata tab in Meme Library</li>
-              <li>Click &quot;Create Metadata&quot;</li>
-              <li>Fill in: name, symbol, description</li>
-              <li>Link it to the pinned logo image</li>
-              <li>Pin the metadata JSON to IPFS</li>
-              <li>
-                Copy the metadata URI — you&apos;ll need it for minting:
-                <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs ml-1">
-                  ipfs://Qm...
-                </code>
-              </li>
-            </ol>
-          </div>
-        </div>
-      </section>
+        <DocCallout variant="tip" title="Bundle vs PF in one line">
+          Bundle: more control, more upfront cost, no built-in audience.
+          PF: cheaper, easier, ride the trending tab if you&rsquo;re lucky.
+        </DocCallout>
+      </Step>
 
-      {/* Step 5: Mint */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-amber-900/30 border border-amber-800 text-amber-400 font-bold text-lg">
-            5
-          </span>
-          <h2 className="text-2xl font-bold text-amber-400">
-            Mint Your Token
-          </h2>
-        </div>
+      <Step num={15} id="step-15" title="Monitor the launch">
+        <p>
+          Open <DocCode>/monitor</DocCode> immediately after launching.
+          Subscribe to the mint. Watch:
+        </p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>Your snipe transactions land (signature → confirmed).</li>
+          <li>First external buys arriving.</li>
+          <li>Volume rhythm. A long quiet stretch is a sign to step in with manual buys or kick off a Volume Bot.</li>
+          <li>Any large LP-remove event — that&rsquo;s usually only you, but watch for it.</li>
+        </ul>
+      </Step>
 
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link href="/mint" className="text-blue-400 hover:underline">
-                  Mint Token
-                </Link>
-              </li>
-              <li>Select the wallet that will be the creator/owner</li>
-              <li>
-                Fill in token details:
-                <ul className="list-disc list-inside ml-6 mt-1 text-xs text-gray-400 space-y-1">
-                  <li><strong>Name:</strong> Your token name (e.g., &quot;My Token&quot;)</li>
-                  <li><strong>Symbol:</strong> Ticker (e.g., &quot;MTK&quot;)</li>
-                  <li><strong>Decimals:</strong> 9 is standard for Solana</li>
-                  <li><strong>Supply:</strong> Total token supply (e.g., 1,000,000,000)</li>
-                  <li><strong>Metadata URI:</strong> The IPFS URI from step 4</li>
-                </ul>
-              </li>
-              <li>Click &quot;Mint&quot; — costs ~0.015 SOL</li>
-              <li>Copy the mint address — you&apos;ll need it for the bundle</li>
-            </ol>
-          </div>
+      <Step num={16} id="step-16" title="Sustain activity">
+        <p>
+          After the initial rush quiets (first 5–30 min), volume often
+          collapses. Two tools fill the gap:
+        </p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>
+            <strong>Volume Bot</strong> (<DocCode>/volume</DocCode>) — random
+            buy/sell cycles across a wallet set. Configure with min/max buy
+            SOL, sell percent, intervals. Start it.
+          </li>
+          <li>
+            <strong>Bumper Bot</strong> (<DocCode>/bumper</DocCode>) — defends
+            a floor price with small buys. Use for the first hour, until
+            organic flow is strong enough to stand on its own.
+          </li>
+        </ul>
+      </Step>
 
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              Optional: Vanity Address
-            </h3>
-            <p className="text-sm text-gray-300">
-              Want a custom mint address like{" "}
-              <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">
-                PUMP...xyz
-              </code>
-              ? Use the Vanity Address tool on the Mint page. Set a prefix/suffix
-              and let the CPU mine a matching keypair. This can take seconds to
-              minutes depending on length.
-            </p>
-          </div>
-        </div>
-      </section>
+      <Step num={17} id="step-17" title="Sell strategy">
+        <p>
+          When you&rsquo;re ready to take profit, you have three options
+          ranging from instant to surgical:
+        </p>
+        <ul className="list-disc list-inside space-y-1">
+          <li>
+            <strong>Quick-sell keybind (F4 / F5)</strong>: the panic-button.
+            One key press → backend parallelizes a sell on every wallet
+            holding the token. Default 15% slippage. Wall-clock ~800 ms on
+            paid RPC. Use this when 2 seconds of friction is too much. See{" "}
+            <Link href="/docs/feature/quick-sell" className="text-offivex-purple-light underline">
+              /docs/feature/quick-sell
+            </Link>
+            .
+          </li>
+          <li>
+            <strong>Distributed sells</strong>: split the dev position across
+            several wallets via a transfer, then sell from each on staggered
+            intervals through Manual Trade. Less price impact, less visible
+            on screeners. Slower but invisible.
+          </li>
+          <li>
+            <strong>Algorithmic sells</strong>: a Volume Bot with high
+            sell_percent and one-way (no buys back) is the lazy version.
+          </li>
+        </ul>
+        <p>
+          Slippage on Jupiter for memecoin exits is rarely below 1000 bps
+          (10%). Set realistic tolerances or trades will fail in a chain.
+        </p>
+        <DocCallout variant="tip" title="Look at the sidebar before pressing F4">
+          The HUD at the bottom of the sidebar shows which token is currently
+          armed for quick-sell. If it says <DocCode>Armed $BLOB</DocCode>,
+          F4 sells $BLOB across all your wallets that hold it. If it says
+          <DocCode>(latest)</DocCode>, you&rsquo;re falling back to your
+          most recent launched token — re-focus from <DocCode>/monitor</DocCode>{" "}
+          if that&rsquo;s not what you want.
+        </DocCallout>
+      </Step>
 
-      {/* Step 6: Bundle Launch */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-orange-900/30 border border-orange-800 text-orange-400 font-bold text-lg">
-            6
-          </span>
-          <h2 className="text-2xl font-bold text-orange-400">
-            Launch with Jito Bundle
-          </h2>
-        </div>
+      <Step num={18} id="step-18" title="Withdraw & lock">
+        <p>
+          When the proceeds are in SOL across your wallets, consolidate.
+          From <DocCode>/wallets</DocCode>, send SOL from each wallet to a
+          single cold address (a Phantom or hardware wallet you control).
+          Skip exchanges if you can — re-deposit later from the cold wallet
+          when you actually want to convert.
+        </p>
+        <p>
+          Final hygiene: click the Lock App badge in the header. The vault
+          locks, in-memory keys zeroize. Close the tab. The launch is done.
+        </p>
+        <DocCallout variant="success" title="What you should have">
+          A funded cold wallet with the launch proceeds, a clean memorial of
+          the launch in <DocCode>/monitor</DocCode> history and{" "}
+          <DocCode>/wallets</DocCode> balances, no orphaned bots still
+          running. If a bot is still on, stop it now — it will keep spending.
+        </DocCallout>
+      </Step>
 
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <p className="text-sm text-gray-300 mb-3">
-              A Jito Bundle groups all your launch transactions into a single
-              atomic operation. Either everything succeeds (pool creation +
-              liquidity + snipe buys) or nothing does. This prevents
-              front-running.
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link href="/bundle" className="text-blue-400 hover:underline">
-                  Bundle / Launch
-                </Link>
-              </li>
-              <li>Select your minted token</li>
-              <li>
-                Configure liquidity:
-                <ul className="list-disc list-inside ml-6 mt-1 text-xs text-gray-400 space-y-1">
-                  <li><strong>SOL liquidity:</strong> How much SOL for the pool (e.g., 10 SOL)</li>
-                  <li><strong>Token liquidity:</strong> How many tokens to pair (e.g., 50% of supply)</li>
-                </ul>
-              </li>
-              <li>
-                Add snipe buys:
-                <ul className="list-disc list-inside ml-6 mt-1 text-xs text-gray-400 space-y-1">
-                  <li>Select a sub-wallet + amount for each snipe</li>
-                  <li>Add 3-5 snipes at different amounts for natural look</li>
-                  <li>Example: 0.1 SOL, 0.2 SOL, 0.15 SOL</li>
-                </ul>
-              </li>
-              <li>Set Jito tip (100,000 lamports = ~0.0001 SOL is standard)</li>
-              <li>Click &quot;Launch Bundle&quot;</li>
-              <li>Wait for confirmation (2-5 seconds typically)</li>
-            </ol>
-          </div>
-
-          <div className="bg-green-900/20 border border-green-800 rounded-lg p-3">
-            <p className="text-green-400 text-sm">
-              <strong>After launch:</strong> Your token now has a liquidity pool
-              and is tradeable on Raydium/Jupiter. Your snipe wallets hold tokens
-              from the initial buys.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Step 7: Distribution */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-cyan-900/30 border border-cyan-800 text-cyan-400 font-bold text-lg">
-            7
-          </span>
-          <h2 className="text-2xl font-bold text-cyan-400">
-            Distribute SOL (Anti-Bubble)
-          </h2>
-        </div>
-
-        <div className="space-y-4 ml-13">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <p className="text-sm text-gray-300 mb-3">
-              To fund wallets for bot trading without creating detectable
-              on-chain patterns, use the anti-bubble distribution.
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link
-                  href="/distribution"
-                  className="text-blue-400 hover:underline"
-                >
-                  Distribution
-                </Link>
-              </li>
-              <li>Click &quot;Create Plan&quot;</li>
-              <li>Select source wallet (the one with SOL)</li>
-              <li>Select destination wallets (your sub-wallets)</li>
-              <li>Set total amount to distribute</li>
-              <li>
-                Configure anti-bubble settings:
-                <ul className="list-disc list-inside ml-6 mt-1 text-xs text-gray-400 space-y-1">
-                  <li><strong>Strategy:</strong> Multi-hop (2-5 hops)</li>
-                  <li><strong>Amount variation:</strong> ±10%</li>
-                  <li><strong>Timing variation:</strong> 5-60 seconds between transfers</li>
-                </ul>
-              </li>
-              <li>Click &quot;Execute&quot; and watch progress in real-time</li>
-            </ol>
-          </div>
-
-          <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
-            <p className="text-blue-400 text-xs">
-              <strong>Resume:</strong> If the distribution is interrupted (server
-              crash, network issue), use the &quot;Resume&quot; button. Already
-              completed transfers are skipped automatically.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Step 8: Trading Bots */}
-      <section className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="w-10 h-10 flex items-center justify-center rounded-full bg-red-900/30 border border-red-800 text-red-400 font-bold text-lg">
-            8
-          </span>
-          <h2 className="text-2xl font-bold text-red-400">
-            Run Trading Bots
-          </h2>
-        </div>
-
-        <div className="space-y-4 ml-13">
-          {/* Volume Bot */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              A. Volume Bot — Generate Trading Activity
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link href="/volume" className="text-blue-400 hover:underline">
-                  Volume Bot
-                </Link>
-              </li>
-              <li>Click &quot;Create Task&quot;</li>
-              <li>Enter your token mint address</li>
-              <li>Select wallets (the ones funded in step 7)</li>
-              <li>Set trade size range (e.g., 0.01 - 0.1 SOL)</li>
-              <li>Set sell percentage (80-100%)</li>
-              <li>Set delay between trades (30-120 seconds)</li>
-              <li>Click &quot;Start&quot; — the bot buys and sells automatically</li>
-            </ol>
-          </div>
-
-          {/* Bumper Bot */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              B. Bumper Bot — Maintain Price Floor
-            </h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link href="/bumper" className="text-blue-400 hover:underline">
-                  Bumper Bot
-                </Link>
-              </li>
-              <li>Click &quot;Create Task&quot;</li>
-              <li>Enter your token mint address</li>
-              <li>Set price threshold (the floor price in SOL)</li>
-              <li>Set buy amount per trigger</li>
-              <li>Set max buys per hour (controls spending)</li>
-              <li>Click &quot;Start&quot; — buys automatically when price drops</li>
-            </ol>
-          </div>
-
-          {/* Wallet Warmer */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              C. Wallet Warmer — Make Wallets Look Real
-            </h3>
-            <p className="text-sm text-gray-300 mb-2">
-              Run this <strong>before</strong> your launch (1-2 days ahead) to
-              give sub-wallets realistic transaction history.
-            </p>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
-              <li>
-                Go to{" "}
-                <Link href="/warmer" className="text-blue-400 hover:underline">
-                  Wallet Warmer
-                </Link>
-              </li>
-              <li>Select wallets to warm</li>
-              <li>Set 10-15 actions per wallet</li>
-              <li>Set delay range (60-300 seconds)</li>
-              <li>Click &quot;Start&quot; — sends small transfers between wallets</li>
-            </ol>
-          </div>
-
-          {/* Manual Trade */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-200 mb-3">
-              D. Manual Trade — One-Off Swaps
-            </h3>
-            <p className="text-sm text-gray-300">
-              Use{" "}
-              <Link href="/trade" className="text-blue-400 hover:underline">
-                Manual Trade
-              </Link>{" "}
-              for individual buy/sell swaps through Jupiter. Select wallet, enter
-              token mint, amount, and slippage (3-5% recommended). Useful for
-              testing or manually managing positions.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Summary */}
-      <section className="mb-8">
-        <div className="bg-indigo-900/20 border border-indigo-800 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-indigo-400 mb-4">
-            Complete Launch Checklist
-          </h2>
-          <div className="space-y-2">
-            {[
-              "Password set, seed phrase saved in 3 locations",
-              "Main wallet created and funded with SOL",
-              "5-10 sub-wallets created",
-              "RPC endpoint(s) configured and health-checked",
-              "Token logo uploaded and pinned to IPFS",
-              "Token metadata created and pinned to IPFS",
-              "Token minted with correct supply/decimals",
-              "Sub-wallets warmed (1-2 days of activity)",
-              "SOL distributed to sub-wallets (anti-bubble)",
-              "Bundle configured: liquidity + snipe buys + Jito tip",
-              "Bundle launched and confirmed",
-              "Volume bot running to generate activity",
-              "Bumper bot set to maintain price floor",
-            ].map((item, idx) => (
-              <label
-                key={idx}
-                className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-900 cursor-pointer text-sm text-gray-300"
-              >
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-500 focus:ring-indigo-500"
-                />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Next Steps */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <Link
-          href="/docs/features"
-          className="group block p-4 rounded-lg bg-gray-900 border border-gray-800 hover:border-purple-500 hover:shadow-lg transition-all"
-        >
-          <h4 className="font-semibold text-purple-400 mb-1 group-hover:translate-x-1 transition-transform">
-            Technical Features Docs
-          </h4>
-          <p className="text-sm text-gray-400">
-            Deep dive into each feature&apos;s configuration and parameters
-          </p>
-        </Link>
-        <Link
-          href="/docs/security"
-          className="group block p-4 rounded-lg bg-gray-900 border border-gray-800 hover:border-red-500 hover:shadow-lg transition-all"
-        >
-          <h4 className="font-semibold text-red-400 mb-1 group-hover:translate-x-1 transition-transform">
-            Security Best Practices
-          </h4>
-          <p className="text-sm text-gray-400">
-            Protect your funds, backups, incident response
-          </p>
-        </Link>
-      </div>
-    </div>
+      <DocSection id="next" title="What now?">
+        <ul className="list-disc list-inside space-y-1.5 text-sm text-gray-300">
+          <li>
+            Want patterns? Read{" "}
+            <Link href="/docs/recipes" className="text-offivex-purple-light underline">Recipes</Link>{" "}
+            — six concrete launch styles with specific settings.
+          </li>
+          <li>
+            Hit an error? Try{" "}
+            <Link href="/docs/troubleshooting" className="text-offivex-purple-light underline">Troubleshooting</Link>{" "}
+            — 25+ messages with fixes.
+          </li>
+          <li>
+            Want depth on any one feature?{" "}
+            <Link href="/docs#feature-reference" className="text-offivex-purple-light underline">Feature reference</Link>{" "}
+            has a page per sidebar entry.
+          </li>
+        </ul>
+      </DocSection>
+    </DocLayout>
   );
 }

@@ -130,3 +130,65 @@ export interface MonitorEvent {
   timestamp: number;
   slot: number;
 }
+
+// ── Launch dashboard payload (mirrors backend `LaunchDashboardResponse`) ──
+export interface LaunchTokenDetails {
+  mint_address: string;
+  name: string | null;
+  symbol: string | null;
+  decimals: number;
+  supply: string;
+  metadata_uri: string | null;
+  creator_wallet_id: string | null;
+  created_at: number;
+}
+
+export interface LaunchHolder {
+  wallet_id: string;
+  label: string;
+  public_key: string;
+  balance_raw: number;
+  percent_of_supply: number;
+}
+
+export interface LaunchVolumeTask {
+  id: string;
+  wallet_ids: string[];
+  status: string;
+  min_sol: number;
+  max_sol: number;
+  sell_percent: number;
+  trades_count: number;
+  total_volume_sol: number;
+}
+
+export interface LaunchBumperTask {
+  id: string;
+  wallet_ids: string[];
+  status: string;
+  price_threshold: number;
+  buy_amount: number;
+  max_buys_hour: number;
+  buys_count: number;
+  total_spent_sol: number;
+}
+
+export interface LaunchBondingCurveState {
+  fill_pct: number;
+  sol_in_curve: number;
+  tokens_remaining: number;
+  graduated: boolean;
+}
+
+export interface LaunchDashboardData {
+  mint: string;
+  details: LaunchTokenDetails;
+  holders: LaunchHolder[];
+  tasks: {
+    volume: LaunchVolumeTask[];
+    bumper: LaunchBumperTask[];
+  };
+  curve: LaunchBondingCurveState | null;
+  activity: MonitorEvent[];
+  fetched_at_ms: number;
+}

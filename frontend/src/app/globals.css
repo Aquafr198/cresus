@@ -1,137 +1,290 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* ============================================================
+   Offivex design tokens — Tailwind 4 @theme (replaces tailwind.config.ts).
+   Generates utility classes: bg-offivex-purple, text-offivex-text-secondary, etc.
+   ============================================================ */
+@theme {
+  /* Backgrounds — uniform Kinesis-style dark purple-navy */
+  --color-offivex-bg-base: #0B0918;
+  --color-offivex-bg-surface: #131129;
+  --color-offivex-bg-elevated: #1B182F;
+
+  /* Solana brand purple shades */
+  --color-offivex-purple: #9945FF;
+  --color-offivex-purple-light: #B070FF;
+  --color-offivex-purple-dark: #6B21A8;
+  --color-offivex-purple-deep: #2E1065;
+  --color-offivex-purple-50: #F5EDFF;
+  --color-offivex-purple-100: #EBD9FF;
+  --color-offivex-purple-200: #D9B8FF;
+  --color-offivex-purple-300: #C28DFF;
+  --color-offivex-purple-400: #B070FF;
+  --color-offivex-purple-500: #9945FF;
+  --color-offivex-purple-600: #7A2DD6;
+  --color-offivex-purple-700: #6B21A8;
+  --color-offivex-purple-800: #4C1382;
+  --color-offivex-purple-900: #2E1065;
+
+  /* Solana brand green */
+  --color-offivex-green: #14F195;
+  --color-offivex-green-light: #5DFFC0;
+  --color-offivex-green-dark: #0FA86A;
+
+  /* Text — Audit P4 A11y. Adjusted `text-muted` from #6B6680 (≈3.5:1 on dark bg)
+   * to #8581A0 (≈4.7:1) to clear WCAG AA contrast (4.5:1) for normal text.
+   * The lighter value is still visually "muted" relative to text-primary, but
+   * remains legible for visually-impaired users without fundamentally changing
+   * the design language. */
+  --color-offivex-text-primary: #F5F3FF;
+  --color-offivex-text-secondary: #A8A3BD;
+  --color-offivex-text-muted: #8581A0;
+
+  /* Fonts (Next.js font CSS vars from layout.tsx) */
+  --font-sans: var(--font-figtree), system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-figtree), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+/* ============================================================
+   Plain CSS custom properties (used by .glass-card, .btn-purple, halos, etc.)
+   ============================================================ */
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  /* Borders / glass — used by custom CSS classes only */
+  --offivex-border: rgba(255, 255, 255, 0.06);
+  --offivex-border-strong: rgba(255, 255, 255, 0.10);
+  --offivex-glass: rgba(255, 255, 255, 0.04);
+
+  /* Legacy compatibility */
+  --background: #0B0918;
+  --foreground: #F5F3FF;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: inherit;
+  background: var(--offivex-bg-base);
+  color: var(--offivex-text-primary);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
-/* Custom scrollbar for sidebar and overflow areas */
+/* Display heading font helper */
+.font-display {
+  font-family: var(--font-inter-tight), var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ============================================================
+   Noise grain disabled — Kinesis-style uniform flat background
+   (class kept as no-op for backward compat with existing JSX)
+   ============================================================ */
+.noise-grain {
+  position: relative;
+}
+
+/* ============================================================
+   Custom scrollbar
+   ============================================================ */
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
 }
-
 .scrollbar-thin::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(153, 69, 255, 0.15);
   border-radius: 4px;
 }
-
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(153, 69, 255, 0.30);
 }
 
+/* ============================================================
+   Animations
+   ============================================================ */
 @keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes slide-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
 }
-
 .animate-slide-in {
   animation: slide-in 0.2s ease-out;
 }
-
 .animate-slide-in-right {
   animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
 }
 
-/* Landing page — animated liquid gradient text */
-@keyframes liquid-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  25% {
-    background-position: 50% 80%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  75% {
-    background-position: 50% 20%;
-  }
-  100% {
-    background-position: 0% 50%;
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Halo pulse (kept as no-op for backward compat — halos are now static) */
+.animate-pulse-glow {
+  /* intentionally no animation — kept class name for compat */
+}
+
+/* Skeleton shimmer — audit P4 UX-11. The Skeleton component scrolls the
+   background-position to fake an animated highlight sweep. */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.animate-shimmer {
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Respect user motion preferences — disable non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-fade-up,
+  .animate-slide-in,
+  .animate-slide-in-right,
+  .animate-float-y,
+  .animate-pulse-glow,
+  .animate-shimmer {
+    animation: none !important;
+    transition: none !important;
   }
 }
 
-.landing-liquid-text {
+/* Subtle float for floating UI mockups */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.animate-float-y {
+  animation: float-y 8s ease-in-out infinite;
+}
+
+/* ============================================================
+   Solana gradient text — sharp static gradient, no animation
+   ============================================================ */
+.text-solana-gradient {
   background-image: linear-gradient(
-    130deg,
-    #60a5fa 0%,
-    #93c5fd 15%,
-    #3b82f6 30%,
-    #a5b4fc 45%,
-    #60a5fa 55%,
-    #38bdf8 70%,
-    #818cf8 85%,
-    #60a5fa 100%
+    110deg,
+    #B070FF 0%,
+    #9945FF 40%,
+    #14F195 100%
   );
-  background-size: 300% 300%;
-  animation: liquid-flow 6s ease-in-out infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
-/* Landing page — blue diagonal light rays */
+/* (legacy liquid-text classes removed — replaced by .text-solana-gradient) */
+
+/* ============================================================
+   Diagonal purple/green rays (replaces old blue rays)
+   ============================================================ */
 .landing-rays {
   background:
     linear-gradient(
       115deg,
       transparent 20%,
-      rgba(59, 130, 246, 0.06) 30%,
-      rgba(59, 130, 246, 0.12) 38%,
-      rgba(99, 155, 255, 0.08) 42%,
+      rgba(153, 69, 255, 0.08) 30%,
+      rgba(153, 69, 255, 0.14) 38%,
+      rgba(176, 112, 255, 0.10) 42%,
       transparent 50%,
       transparent 55%,
-      rgba(59, 130, 246, 0.05) 60%,
-      rgba(59, 130, 246, 0.10) 66%,
-      rgba(99, 155, 255, 0.06) 70%,
+      rgba(20, 241, 149, 0.06) 60%,
+      rgba(20, 241, 149, 0.10) 66%,
+      rgba(93, 255, 192, 0.06) 70%,
       transparent 78%
     ),
     linear-gradient(
       135deg,
       transparent 25%,
-      rgba(99, 102, 241, 0.04) 35%,
-      rgba(99, 102, 241, 0.08) 45%,
+      rgba(153, 69, 255, 0.06) 35%,
+      rgba(107, 33, 168, 0.10) 45%,
       transparent 55%
     );
+}
+
+/* ============================================================
+   Reusable Offivex utility classes
+   ============================================================ */
+
+/* Glassmorphism card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Purple primary button (Apply / CTAs) — sharp, no glow */
+.btn-purple {
+  background: #9945FF;
+  color: #07060d;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+.btn-purple:hover {
+  background: #B070FF;
+}
+.btn-purple:active {
+  background: #7A2DD6;
+}
+
+/* Outline subtle button */
+.btn-outline {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--offivex-text-primary);
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(153, 69, 255, 0.40);
+}
+
+/* Halos disabled — Kinesis-style uniform flat background.
+   Classes kept as no-op for backward compat with existing JSX (divs render invisible). */
+.halo-purple {
+  /* intentionally empty */
+}
+.halo-green {
+  /* intentionally empty */
+}
+
+/* ============================================================
+   Privacy Mode — masks every <Sensitive> element when the user
+   toggles the sidebar Privacy button. Activated by setting
+   `data-privacy-mode="on"` on <body> via PrivacyProvider.
+   Pure CSS so toggling is O(1) — no React re-render of the tree.
+
+   Hover-to-reveal: a 1.5s delay before reveal avoids accidental
+   reveals from cursor drift. Elements marked with data-locked
+   ("seed phrase" class) never reveal on hover.
+
+   `data-sensitive="always"` blurs regardless of the global
+   toggle — used for permanently-secret values.
+   ============================================================ */
+body[data-privacy-mode="on"] [data-sensitive="true"],
+[data-sensitive="always"] {
+  filter: blur(8px);
+  user-select: none;
+  cursor: default;
+  transition: filter 0.15s ease-out;
+}
+
+body[data-privacy-mode="on"]
+  [data-sensitive="true"]:not([data-locked="true"]):hover {
+  filter: blur(0);
+  transition: filter 0.15s ease-out 1.5s;
 }

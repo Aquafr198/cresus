@@ -1,0 +1,87 @@
+{
+    "ticketSystem": {
+      "categoryId": "1451669502050963526",
+      "logsChannelId": "1451669553586114805",
+      "ticketTypes": [
+        {
+          "id": "api_auth",
+          "name": "🔑 API & Auth",
+          "description": "API key issues, rotation, integration help"
+        },
+        {
+          "id": "billing",
+          "name": "💳 Billing",
+          "description": "Subscription, invoice, payment confirmation"
+        },
+        {
+          "id": "bug",
+          "name": "🐛 Bug Report",
+          "description": "Bug in the app, the bot, or unexpected behavior"
+        },
+        {
+          "id": "launch",
+          "name": "🚀 Launch Support",
+          "description": "Bundle/mint config, Jito tip, LP burn, snipe setup"
+        },
+        {
+          "id": "other",
+          "name": "🧭 Other",
+          "description": "Anything else"
+        }
+      ],
+      "staffRoleId": "1451669469213491392"
+    },
+    "automod": {
+      "badWords": ["fdp", "ntm", "tg"],
+      "exemptRoleIds": ["1365453459901644860", "1365453666953334925"],
+      "logsChannelId": "1449240169994522736",
+      "antispamSettings": {
+        "maxMessages": 5,
+        "timeWindow": 3000,
+        "muteDuration": 300000
+      }
+    },
+    "welcome": {
+      "channelId": "1451669510376394893",
+      "defaultRoleId": "1451669485353304228",
+      "message": "Welcome to Offivex {member}! Don't forget to complete your verification, and feel free to open a ticket if you have any questions."
+    },
+    "suggestions": {
+      "channelId": "1451669543708528843"
+    },
+    "logs": {
+      "channelId": "1451669553586114805"
+    },
+    "moderation": {
+      "staffRoleId": "1161060665184763904"
+    },
+    "supportRole": {
+      "roleId": "1451669481137897586",
+      "inviteLink": ".gg/offivex",
+      "logsChannelId": "1451669553586114805"
+    },
+    "boosterRole": {
+      "roleId": "1161060665184763904",
+      "logsChannelId": "1451669553586114805"
+    },
+    "status": [
+      {
+        "type": "WATCHING",
+        "content": "offivex.gg"
+      },
+      {
+        "type": "WATCHING",
+        "content": "discord.gg/offivex"
+      },
+      {
+        "type": "WATCHING",
+        "content": "the status"
+      }
+    ],
+    "pnlPosts": {
+      "channelId": "",
+      "apiBaseUrl": "http://localhost:3001/api/v1",
+      "pollIntervalMs": 30000,
+      "siteUrl": "https://offivex.gg"
+    }
+  }

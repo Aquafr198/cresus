@@ -1,0 +1,24 @@
+{
+  "name": "offivex-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "register-commands": "node deploy-commands.js",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Offivex Discord bot — moderation, tickets, verification, PNL auto-post",
+  "dependencies": {
+    "@discordjs/rest": "^2.4.3",
+    "better-sqlite3": "^12.10.0",
+    "canvas": "^3.1.0",
+    "chalk": "^4.1.2",
+    "discord-api-types": "^0.38.1",
+    "discord.js": "^14.18.0",
+    "dotenv": "^16.5.0",
+    "moment": "^2.30.1"
+  }
+}

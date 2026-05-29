@@ -1,15 +1,24 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { Wallet } from "@/lib/types";
+import { useSWR } from "@/lib/swr";
+import { isValidSolanaAddress } from "@/lib/solana";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SolscanButton } from "@/components/ui/SolscanButton";
+import { Sensitive } from "@/components/privacy/Sensitive";
 
 export default function WalletsPage() {
   const toast = useToast();
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [loading, setLoading] = useState(true);
+  // SWR cache key is shared across all `/wallets` pages so a creation /
+  // deletion here invalidates the same cache used by /mint, /bundle, etc.
+  const {
+    data: wallets = [],
+    error: swrError,
+    isLoading: loading,
+    mutate: refetchWallets,
+  } = useSWR("wallets.list", () => api.wallets.list().then((r) => r.data));
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -47,48 +56,43 @@ export default function WalletsPage() {
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
 
-  const fetchWallets = useCallback(async () => {
-    try {
-      setError(null);
-      const res = await api.wallets.list();
-      setWallets(res.data);
-    } catch (e) {
-      if (e instanceof ApiError) {
-        setError(e.message);
-      } else {
-        setError("Failed to fetch wallets");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Surface SWR fetch errors via the same `error` state the rest of the
+  // page already consumes (banner, retry button).
   useEffect(() => {
-    fetchWallets();
-  }, [fetchWallets]);
+    if (swrError instanceof ApiError) setError(swrError.message);
+    else if (swrError) setError("Failed to fetch wallets");
+    else setError(null);
+  }, [swrError]);
 
-  // Auto-dismiss exported key after 30 seconds
+  const fetchWallets = refetchWallets;
+
+  // Auto-dismiss exported key after 30 seconds.
+  // Audit POST-15 — previously there were TWO timers (this interval + a
+  // setTimeout in handleExport) competing to null exportedKey. The interval
+  // also only fired while `showExportedKey` was true, so a user who didn't
+  // reveal relied on the setTimeout. Now this single interval covers both
+  // cases (countdown visible only when revealed, but always runs).
   useEffect(() => {
-    if (exportedKey && showExportedKey) {
-      setKeyDismissCountdown(30);
-      const interval = setInterval(() => {
-        setKeyDismissCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(interval);
-            setExportedKey(null);
-            setShowExportedKey(false);
-            setKeyDismissCountdown(null);
-            toast.info("Exported key dismissed for security");
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    } else {
+    if (!exportedKey) {
       setKeyDismissCountdown(null);
+      return;
     }
-  }, [exportedKey, showExportedKey, toast]);
+    setKeyDismissCountdown(30);
+    const interval = setInterval(() => {
+      setKeyDismissCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          setExportedKey(null);
+          setShowExportedKey(false);
+          setKeyDismissCountdown(null);
+          toast.info("Exported key dismissed for security");
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [exportedKey, toast]);
 
   const handleCreate = async () => {
     setCreating(true);
@@ -163,8 +167,8 @@ export default function WalletsPage() {
       setExportPasswordPrompt(null);
       setExportPassword("");
       toast.success("Secret key exported successfully!");
-      // Auto-dismiss after 30 seconds
-      setTimeout(() => setExportedKey(null), 30000);
+      // Audit POST-15 — auto-dismiss is now handled by the useEffect at L72
+      // which fires the moment `exportedKey` is set (no race with this timer).
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.message);
@@ -207,6 +211,16 @@ export default function WalletsPage() {
 
   const handleSend = async () => {
     if (!sendWallet || !sendRecipient || !sendAmount) return;
+
+    // UX-3 — validate Solana address format BEFORE the confirm dialog so the
+    // user sees an inline error rather than a post-confirm RPC failure.
+    if (!isValidSolanaAddress(sendRecipient)) {
+      setError(
+        "Invalid Solana address. Expected 32-44 base58 characters (e.g. 7xK9…m2Fq)."
+      );
+      toast.error("Invalid Solana address");
+      return;
+    }
 
     // Validate amount format
     const amountNum = parseFloat(sendAmount);
@@ -341,9 +355,12 @@ export default function WalletsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-mono text-gray-400 bg-gray-800 px-2 py-0.5 rounded">
-                        {wallet.public_key.slice(0, 4)}...
-                        {wallet.public_key.slice(-4)}
+                        <Sensitive>
+                          {wallet.public_key.slice(0, 4)}...
+                          {wallet.public_key.slice(-4)}
+                        </Sensitive>
                       </span>
+                      <SolscanButton address={wallet.public_key} size={14} />
                       {wallet.name && (
                         <span className="font-medium">{wallet.name}</span>
                       )}
@@ -355,7 +372,7 @@ export default function WalletsPage() {
                       )}
                     </div>
                     <div className="mt-1 text-xs text-gray-500 font-mono truncate">
-                      {wallet.public_key}
+                      <Sensitive>{wallet.public_key}</Sensitive>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
@@ -418,9 +435,12 @@ export default function WalletsPage() {
                           <div className="flex items-center gap-3">
                             <span className="text-xs text-gray-500">|-</span>
                             <span className="text-sm font-mono text-gray-400 bg-gray-800 px-2 py-0.5 rounded">
-                              {child.public_key.slice(0, 4)}...
-                              {child.public_key.slice(-4)}
+                              <Sensitive>
+                                {child.public_key.slice(0, 4)}...
+                                {child.public_key.slice(-4)}
+                              </Sensitive>
                             </span>
+                            <SolscanButton address={child.public_key} size={12} />
                             {child.name && (
                               <span className="text-sm text-gray-300">
                                 {child.name}
@@ -588,10 +608,12 @@ export default function WalletsPage() {
                 <div className="mb-4">
                   <div className="text-sm text-gray-400 mb-1">SOL Balance</div>
                   <div className="text-2xl font-bold text-green-400">
-                    {balanceData.sol.toFixed(9)} SOL
+                    <Sensitive>{balanceData.sol.toFixed(9)} SOL</Sensitive>
                   </div>
                   <div className="text-xs text-gray-500 font-mono mt-1">
-                    {balanceData.lamports.toLocaleString()} lamports
+                    <Sensitive>
+                      {balanceData.lamports.toLocaleString()} lamports
+                    </Sensitive>
                   </div>
                 </div>
                 {balanceData.tokens.length > 0 && (
@@ -604,10 +626,12 @@ export default function WalletsPage() {
                           className="bg-gray-800 rounded-lg p-3"
                         >
                           <div className="text-xs text-gray-500 font-mono mb-1">
-                            {token.mint.slice(0, 8)}...{token.mint.slice(-8)}
+                            <Sensitive>
+                              {token.mint.slice(0, 8)}...{token.mint.slice(-8)}
+                            </Sensitive>
                           </div>
                           <div className="text-sm font-medium">
-                            {token.amount.toLocaleString()}
+                            <Sensitive>{token.amount.toLocaleString()}</Sensitive>
                           </div>
                         </div>
                       ))}
@@ -697,7 +721,15 @@ export default function WalletsPage() {
                 </div>
                 <div className="flex justify-end gap-3">
                   <button
-                    onClick={() => setSendWallet(null)}
+                    onClick={() => {
+                      // Audit POST-14 — reset sendResult on manual close so
+                      // re-opening the modal shows a fresh form, not a stale
+                      // success-state from a previous send.
+                      setSendWallet(null);
+                      setSendResult(null);
+                      setSendRecipient("");
+                      setSendAmount("");
+                    }}
                     className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
                   >
                     Cancel

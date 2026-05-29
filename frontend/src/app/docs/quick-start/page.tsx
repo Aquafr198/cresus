@@ -17,11 +17,11 @@ import {
 
 export default function QuickStartPage() {
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto px-6 pt-12 pb-24">
       <div className="mb-6">
         <Link
           href="/docs"
-          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-all hover:gap-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg px-2 py-1"
+          className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-all hover:gap-3 focus:outline-none focus:ring-2 focus:ring-offivex-purple rounded-lg px-2 py-1"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Back to Documentation
@@ -30,9 +30,25 @@ export default function QuickStartPage() {
 
       <div className="flex items-center gap-3 mb-2">
         <RocketLaunchIcon className="w-8 h-8 text-green-400 drop-shadow-lg" />
-        <h1 className="text-3xl font-bold">CRESUS - Quick Start Guide</h1>
+        <h1 className="text-3xl font-bold">OFFIVEX - Quick Start Guide</h1>
       </div>
       <p className="text-gray-400 mb-8">Get started in 5 minutes</p>
+
+      {/* Cross-link to deeper docs */}
+      <div className="mb-8 p-4 rounded-lg border border-offivex-purple/30 bg-offivex-purple/[0.05]">
+        <p className="text-sm text-gray-300 leading-relaxed">
+          <strong className="text-offivex-purple-light">Want depth?</strong>{" "}
+          Once you&rsquo;ve got the basics from this page, the{" "}
+          <Link href="/docs/tutorial" className="text-offivex-purple-light underline">
+            Master Tutorial
+          </Link>{" "}
+          walks you through every step of a real launch (18 steps), and the{" "}
+          <Link href="/docs#feature-reference" className="text-offivex-purple-light underline">
+            Feature reference
+          </Link>{" "}
+          has one focused page per sidebar entry.
+        </p>
+      </div>
 
       {/* Installation */}
       <section className="mb-8">
@@ -43,7 +59,7 @@ export default function QuickStartPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
           <pre className="text-sm text-gray-300 overflow-x-auto">
             <code>{`# Clone
-git clone https://github.com/your-repo/cresus.git && cd cresus
+git clone https://github.com/your-repo/offivex.git && cd offivex
 
 # Configure
 cp .env.example .env
@@ -66,7 +82,7 @@ cd ../frontend && npm install`}</code>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
           <pre className="text-sm text-gray-300 overflow-x-auto">
             <code>{`# Terminal 1 - Backend
-cd backend && cargo run -p cresus-server
+cd backend && cargo run -p offivex-server
 
 # Terminal 2 - Frontend
 cd frontend && npm run dev`}</code>
@@ -113,7 +129,7 @@ cd frontend && npm run dev`}</code>
 cargo build --workspace
 
 # Run
-cargo run -p cresus-server
+cargo run -p offivex-server
 
 # Tests
 cargo test --workspace
@@ -148,7 +164,7 @@ npm run lint`}</code>
       {/* API Endpoints */}
       <section className="mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <KeyIcon className="w-6 h-6 text-indigo-400" />
+          <KeyIcon className="w-6 h-6 text-offivex-purple-light" />
           <h2 className="text-2xl font-semibold">Essential API Endpoints</h2>
         </div>
         <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
@@ -192,7 +208,7 @@ curl http://127.0.0.1:3001/api/v1/auth/seed-phrase`}</code>
 
         <div className="space-y-4">
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-3 text-indigo-400">Create and Launch a Token</h3>
+            <h3 className="text-lg font-semibold mb-3 text-offivex-purple-light">Create and Launch a Token</h3>
             <ol className="list-decimal list-inside space-y-1 text-gray-300 text-sm ml-4">
               <li>Upload logo → <Link href="/meme-library" className="text-blue-400 hover:underline">/meme-library</Link></li>
               <li>Create metadata → /meme-library/metadata</li>
@@ -203,7 +219,7 @@ curl http://127.0.0.1:3001/api/v1/auth/seed-phrase`}</code>
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-3 text-indigo-400">Anti-Bubble Distribution</h3>
+            <h3 className="text-lg font-semibold mb-3 text-offivex-purple-light">Anti-Bubble Distribution</h3>
             <ol className="list-decimal list-inside space-y-1 text-gray-300 text-sm ml-4">
               <li>Create wallets (1 parent + 10 subs)</li>
               <li>Plan distribution → <Link href="/distribution" className="text-blue-400 hover:underline">/distribution</Link>

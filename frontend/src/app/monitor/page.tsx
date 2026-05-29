@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api, ApiError } from "@/lib/api";
+import { useSWR } from "@/lib/swr";
 import { monitorWs } from "@/lib/ws";
-import { MonitorEvent, Token } from "@/lib/types";
+import { MonitorEvent } from "@/lib/types";
+import { useClaimActiveMint } from "@/components/launch/LaunchContext";
 
 const MAX_EVENTS = 200;
 
 export default function MonitorPage() {
   const [events, setEvents] = useState<MonitorEvent[]>([]);
-  const [tokens, setTokens] = useState<Token[]>([]);
-  const [subscriptions, setSubscriptions] = useState<string[]>([]);
+  // Shared SWR keys with /mint, /bundle. Monitor-specific subscriptions
+  // get their own key.
+  const tSwr = useSWR("tokens.list", () => api.tokens.list().then((r) => r.data));
+  const sSwr = useSWR(
+    "monitor.subscriptions",
+    () => api.monitor.subscriptions().then((r) => r.data),
+  );
+  const tokens = tSwr.data ?? [];
+  const subscriptions = sSwr.data ?? [];
   const [mintInput, setMintInput] = useState("");
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,23 +33,37 @@ export default function MonitorPage() {
     pausedRef.current = paused;
   }, [paused]);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [tokensRes, subsRes] = await Promise.all([
-        api.tokens.list(),
-        api.monitor.subscriptions(),
-      ]);
-      setTokens(tokensRes.data);
-      setSubscriptions(subsRes.data);
-    } catch (e) {
-      if (e instanceof ApiError) setError(e.message);
-    }
-  }, []);
+  // Surface fetch errors via the existing banner.
+  useEffect(() => {
+    const e = tSwr.error ?? sSwr.error;
+    if (e instanceof ApiError) setError(e.message);
+    else if (e) setError("Failed to load monitor data");
+  }, [tSwr.error, sSwr.error]);
+
+  // Quick-sell focus. The keybind (F4/F5) targets the *focused* subscription
+  // while this page is mounted. Default: the most recently subscribed mint.
+  // The user can click the star on any subscription row to re-focus.
+  const [focusedMint, setFocusedMint] = useState<string | null>(null);
+
+  // Auto-fallback: if the manually-focused mint disappears (unsubscribed) or
+  // none has ever been chosen, point at the most recent subscription.
+  const claimedMint =
+    (focusedMint && subscriptions.includes(focusedMint) ? focusedMint : null) ||
+    subscriptions[subscriptions.length - 1] ||
+    null;
+  const claimedLabel =
+    (claimedMint &&
+      tokens.find((t) => t.mint_address === claimedMint)?.symbol) ||
+    null;
+  useClaimActiveMint(claimedMint, claimedLabel);
+
+  // Called after subscribe/unsubscribe to refresh the subscriptions list.
+  const fetchData = () => {
+    void sSwr.mutate();
+  };
 
   useEffect(() => {
-    fetchData();
-
-    // Connect WS
+    // Connect WS — independent of REST cache.
     monitorWs.connect();
     setConnected(monitorWs.connected);
 
@@ -61,7 +84,7 @@ export default function MonitorPage() {
       unsubscribe();
       monitorWs.disconnect();
     };
-  }, [fetchData]);
+  }, []);
 
   const handleSubscribe = async (mint: string) => {
     if (!mint.trim()) return;
@@ -205,22 +228,47 @@ export default function MonitorPage() {
               <p className="text-gray-500 text-xs">No active subscriptions.</p>
             ) : (
               <div className="space-y-1">
-                {subscriptions.map((mint) => (
-                  <div
-                    key={mint}
-                    className="flex items-center justify-between px-2 py-1.5 bg-gray-800 rounded"
-                  >
-                    <span className="text-xs font-mono truncate flex-1">
-                      {tokenLabel(mint)}
-                    </span>
-                    <button
-                      onClick={() => handleUnsubscribe(mint)}
-                      className="ml-2 px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-900/30 rounded"
+                {subscriptions.map((mint) => {
+                  const isFocused = mint === claimedMint;
+                  return (
+                    <div
+                      key={mint}
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded transition-colors ${
+                        isFocused
+                          ? "bg-offivex-purple/15 border border-offivex-purple/40"
+                          : "bg-gray-800 border border-transparent"
+                      }`}
                     >
-                      X
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        onClick={() => setFocusedMint(mint)}
+                        title={
+                          isFocused
+                            ? "Quick-sell target (F4/F5)"
+                            : "Set as quick-sell target"
+                        }
+                        className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
+                          isFocused
+                            ? "text-offivex-purple-light"
+                            : "text-gray-500 hover:text-gray-300"
+                        }`}
+                        aria-label={
+                          isFocused ? "Active quick-sell target" : "Focus this mint"
+                        }
+                      >
+                        {isFocused ? "★" : "☆"}
+                      </button>
+                      <span className="text-xs font-mono truncate flex-1">
+                        {tokenLabel(mint)}
+                      </span>
+                      <button
+                        onClick={() => handleUnsubscribe(mint)}
+                        className="ml-1 px-1.5 py-0.5 text-xs text-red-400 hover:bg-red-900/30 rounded"
+                      >
+                        X
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>

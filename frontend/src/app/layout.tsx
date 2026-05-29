@@ -1,22 +1,36 @@
 import type { Metadata } from "next";
-import { Noto_Sans } from "next/font/google";
+import { Figtree, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
 import { AuthGate } from "@/components/auth/AuthGate";
 import { ToastProvider } from "@/components/ui/ToastProvider";
-import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { SwrProvider } from "@/components/providers/SwrProvider";
 
-const notoSans = Noto_Sans({
+const figtree = Figtree({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
+  variable: "--font-figtree",
+});
+
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
+  display: "swap",
+  variable: "--font-bricolage",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400"],
+  display: "swap",
+  variable: "--font-jetbrains-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Cresus - Solana Launch Platform",
-  description: "Token launch, bundling, and wallet management for Solana",
-  icons: {
-    icon: "/icon.svg",
-  },
+  title: "Offivex — The Solana Launch Stack",
+  description: "Premium launchpad infrastructure for Solana teams. Volume bots, snipers, multi-wallet, anti-flag. Invite only.",
+  // Favicon is generated dynamically by src/app/icon.tsx (Satori ImageResponse).
+  // Apple touch icon falls back to the same logo via the convention below.
 };
 
 export default function RootLayout({
@@ -25,18 +39,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${notoSans.className} min-h-screen bg-gray-950 text-gray-100`}>
-        <ToastProvider>
-          <AuthGate>
-            <div className="flex h-screen">
-              <Sidebar />
-              <main className="flex-1 overflow-auto p-6">
-                <ErrorBoundary>{children}</ErrorBoundary>
-              </main>
-            </div>
-          </AuthGate>
-        </ToastProvider>
+    <html lang="en" className={`${figtree.variable} ${bricolage.variable} ${jetbrainsMono.variable}`}>
+      <body
+        className="min-h-screen bg-offivex-bg-base text-offivex-text-primary antialiased"
+        suppressHydrationWarning
+      >
+        <SwrProvider>
+          <ToastProvider>
+            <AuthGate>{children}</AuthGate>
+          </ToastProvider>
+        </SwrProvider>
       </body>
     </html>
   );

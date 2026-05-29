@@ -6,6 +6,7 @@ backend/target/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+frontend/tsconfig.tsbuildinfo
 
 # Environment
 .env
@@ -13,6 +14,11 @@ frontend/out/
 .env.*.local
 backend/.env
 frontend/.env
+offivexbot/.env
+
+# Bot runtime data
+offivexbot/node_modules/
+offivexbot/data/
 
 # Database
 data/*.db

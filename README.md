@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">Cresus</h1>
+  <h1 align="center">Offivex</h1>
   <p align="center">
     Self-hosted Solana token launchpad & DeFi toolkit
     <br />
@@ -21,7 +21,7 @@
 
 ## Overview
 
-Cresus is a **fully self-hosted** Solana platform that gives you complete control over token launches, wallet management, and on-chain trading. No third-party dashboards, no API keys shared with SaaS providers — everything runs on your infrastructure.
+Offivex is a **fully self-hosted** Solana platform that gives you complete control over token launches, wallet management, and on-chain trading. No third-party dashboards, no API keys shared with SaaS providers — everything runs on your infrastructure.
 
 ### Tech Stack
 
@@ -87,14 +87,14 @@ Cresus is a **fully self-hosted** Solana platform that gives you complete contro
 ## Architecture
 
 ```
-cresus/
+Offivex/
 ├── backend/                        # Rust workspace
 │   ├── crates/
-│   │   ├── cresus-server/          # Axum HTTP server, auth, routing, metrics, scheduler
-│   │   ├── cresus-api/             # Request handlers, validation, audit
-│   │   ├── cresus-core/            # Business logic — trading, bundles, wallets, distribution
-│   │   ├── cresus-db/              # SQLite — migrations, repos, backups
-│   │   └── cresus-crypto/          # AES-256-GCM, Argon2, BIP-39, secure memory
+│   │   ├── Offivex-server/          # Axum HTTP server, auth, routing, metrics, scheduler
+│   │   ├── Offivex-api/             # Request handlers, validation, audit
+│   │   ├── Offivex-core/            # Business logic — trading, bundles, wallets, distribution
+│   │   ├── Offivex-db/              # SQLite — migrations, repos, backups
+│   │   └── Offivex-crypto/          # AES-256-GCM, Argon2, BIP-39, secure memory
 │   └── Cargo.toml                  # Workspace manifest
 │
 ├── frontend/                       # Next.js 14 application
@@ -115,8 +115,8 @@ cresus/
 ### Docker (recommended)
 
 ```bash
-git clone https://github.com/Aquafr198/cresus.git
-cd cresus
+git clone https://github.com/Aquafr198/Offivex.git
+cd Offivex
 cp .env.docker .env
 # Edit .env — set your DOMAIN and API keys
 docker compose up -d
@@ -135,7 +135,7 @@ Open `https://localhost` and set your master password on first launch.
 cd backend
 cp .env.example .env        # Configure your RPC endpoints and API keys
 cargo build --release
-./target/release/cresus      # Starts on http://127.0.0.1:3001
+./target/release/Offivex      # Starts on http://127.0.0.1:3001
 
 # 2. Frontend (separate terminal)
 cd frontend
@@ -152,7 +152,7 @@ All settings are managed via environment variables. See [`backend/.env.example`]
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CRESUS_SOLANA_CLUSTER` | `devnet` | Solana cluster: `devnet` or `mainnet` |
+| `OFFIVEX_SOLANA_CLUSTER` | `devnet` | Solana cluster: `devnet` or `mainnet` |
 | `SOLANA_RPC_MAINNET` | Public RPC | Mainnet RPC endpoint (paid RPC recommended) |
 | `SOLANA_RPC_DEVNET` | Public RPC | Devnet RPC endpoint |
 | `PINATA_API_KEY` | — | Pinata API key for IPFS metadata pinning |

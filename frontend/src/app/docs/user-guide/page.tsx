@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { JSX } from "react";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -32,11 +33,11 @@ export default function UserGuidePage() {
       title: "Introduction",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400">
-            What is Cresus?
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
+            What is Offivex?
           </h3>
           <p className="text-gray-300">
-            Cresus is a complete platform for managing the entire lifecycle
+            Offivex is a complete platform for managing the entire lifecycle
             of a Solana token, from creation to distribution.
           </p>
           <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
@@ -75,7 +76,7 @@ export default function UserGuidePage() {
 └──────────────────────────────────────────────────────────┘`}
             </pre>
           </div>
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             Architecture
           </h3>
           <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
@@ -120,7 +121,7 @@ export default function UserGuidePage() {
       title: "Getting Started",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             Installation
           </h3>
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
@@ -188,8 +189,8 @@ sudo apt-get install libssl-dev pkg-config`}
             <pre className="text-sm text-gray-300 overflow-x-auto">
               <code>
                 {`# 1. Clone the repository
-git clone https://github.com/your-repo/cresus.git
-cd cresus
+git clone https://github.com/your-repo/offivex.git
+cd offivex
 
 # 2. Create .env file
 cp .env.example .env
@@ -207,10 +208,10 @@ nano .env`}
             <pre className="text-sm text-gray-300 overflow-x-auto">
               <code>
                 {`# Backend
-CRESUS_HOST=127.0.0.1
-CRESUS_PORT=3001
-CRESUS_DB_PATH=data/cresus.db
-CRESUS_LOG_LEVEL=info
+OFFIVEX_HOST=127.0.0.1
+OFFIVEX_PORT=3001
+OFFIVEX_DB_PATH=data/offivex.db
+OFFIVEX_LOG_LEVEL=info
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api/v1`}
@@ -236,11 +237,11 @@ NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api/v1`}
                   <code>
                     {`cd backend
 cargo build --workspace --release
-cargo run -p cresus-server --release
+cargo run -p offivex-server --release
 
 # You should see:
-INFO Starting Cresus server version="0.1.0" host=127.0.0.1 port=3001
-INFO Database initialized path="data/cresus.db"
+INFO Starting Offivex server version="0.1.0" host=127.0.0.1 port=3001
+INFO Database initialized path="data/offivex.db"
 Server running on http://127.0.0.1:3001`}
                   </code>
                 </pre>
@@ -296,7 +297,7 @@ npm run dev
       title: "Initial Configuration",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             First-Time Setup
           </h3>
           <p className="text-gray-300">
@@ -332,7 +333,7 @@ npm run dev
 
           <div className="space-y-3">
             <div className="bg-gray-800 rounded-lg p-4">
-              <h5 className="text-indigo-400 font-semibold mb-2">
+              <h5 className="text-offivex-purple-light font-semibold mb-2">
                 1. Seed Phrase Generation
               </h5>
               <p className="text-gray-300 text-sm mb-2">
@@ -349,7 +350,7 @@ npm run dev
             </div>
 
             <div className="bg-gray-800 rounded-lg p-4">
-              <h5 className="text-indigo-400 font-semibold mb-2">
+              <h5 className="text-offivex-purple-light font-semibold mb-2">
                 2. Master Encryption Key (MEK) Derivation
               </h5>
               <p className="text-gray-300 text-sm mb-2">
@@ -365,7 +366,7 @@ npm run dev
             </div>
 
             <div className="bg-gray-800 rounded-lg p-4">
-              <h5 className="text-indigo-400 font-semibold mb-2">
+              <h5 className="text-offivex-purple-light font-semibold mb-2">
                 3. Seed Phrase Encryption
               </h5>
               <p className="text-gray-300 text-sm mb-2">
@@ -381,7 +382,7 @@ npm run dev
             </div>
 
             <div className="bg-gray-800 rounded-lg p-4">
-              <h5 className="text-indigo-400 font-semibold mb-2">
+              <h5 className="text-offivex-purple-light font-semibold mb-2">
                 4. Seed Phrase Display
               </h5>
               <div className="bg-red-900/20 border border-red-800 rounded p-3 mt-2">
@@ -410,7 +411,7 @@ npm run dev
             </div>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-8">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-8">
             Unlock / Lock
           </h3>
 
@@ -463,7 +464,7 @@ npm run dev
       title: "Wallet Management",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             Wallet Architecture
           </h3>
           <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
@@ -629,7 +630,7 @@ npm run dev
       title: "SOL & Token Operations",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             Rate Limiting
           </h3>
           <p className="text-gray-300">
@@ -673,7 +674,7 @@ npm run dev
             </p>
           </div>
 
-          <h3 className="text-xl font-semibold text-indigo-400 mt-6">
+          <h3 className="text-xl font-semibold text-offivex-purple-light mt-6">
             Security Checks
           </h3>
           <div className="space-y-3">
@@ -716,10 +717,14 @@ amount.checked_add(FEE).ok_or("Overflow")?;`}
           <h3 className="text-xl font-semibold text-blue-400 mt-6">
             Send SPL Tokens
           </h3>
-          <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3">
-            <p className="text-yellow-400 text-sm">
-              <strong>TODO:</strong> Implementation similar to send_sol but with
-              Associated Token Account (ATA) management
+          <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
+            <p className="text-blue-300 text-sm">
+              <strong>Note:</strong> SPL token sends are handled by the same{" "}
+              <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">
+                POST /api/v1/wallets/{`{id}`}/send
+              </code>{" "}
+              endpoint — pass <code className="bg-gray-800 px-1.5 py-0.5 rounded text-xs">mint_address</code> in the body and the
+              backend resolves the source / destination ATAs, creating the destination ATA on the fly when missing.
             </p>
           </div>
           <div className="bg-gray-900 rounded-lg p-4 mt-3">
@@ -745,11 +750,11 @@ instructions.push(spl_token::instruction::transfer(...));`}
   ];
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-6 pt-12 pb-24">
       <div className="mb-8">
         <Link
           href="/docs"
-          className="inline-flex items-center text-indigo-400 hover:text-indigo-300 mb-4 transition-all hover:gap-3 gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg px-2 py-1"
+          className="inline-flex items-center text-offivex-purple-light hover:text-offivex-purple-light mb-4 transition-all hover:gap-3 gap-2 focus:outline-none focus:ring-2 focus:ring-offivex-purple rounded-lg px-2 py-1"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Back to Documentation
@@ -757,6 +762,18 @@ instructions.push(spl_token::instruction::transfer(...));`}
         <h1 className="text-4xl font-bold mb-2">Complete User Guide</h1>
         <p className="text-gray-400 text-lg">
           Solana platform for token launch, bundling and wallet management
+        </p>
+      </div>
+
+      <div className="mb-8 p-4 rounded-lg border border-offivex-purple/30 bg-offivex-purple/[0.05]">
+        <p className="text-sm text-gray-300 leading-relaxed">
+          <strong className="text-offivex-purple-light">Newer to Offivex?</strong>{" "}
+          The{" "}
+          <Link href="/docs/tutorial" className="text-offivex-purple-light underline">
+            Master Tutorial
+          </Link>{" "}
+          is a step-by-step walk from login to launch. This page is the
+          long-form internals doc — wallet encryption, RPC, database, API.
         </p>
       </div>
 
@@ -768,7 +785,7 @@ instructions.push(spl_token::instruction::transfer(...));`}
           >
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-offivex-purple"
             >
               <h2 className="text-xl font-semibold text-left">
                 {section.title}
@@ -788,7 +805,7 @@ instructions.push(spl_token::instruction::transfer(...));`}
               </svg>
             </button>
             {openSection === section.id && (
-              <div className="px-6 py-4 border-t border-gray-800 bg-gray-900/50 animate-in slide-in-from-top-2 duration-300">
+              <div className="px-6 py-4 border-t border-gray-800 bg-gray-900/50">
                 {section.content}
               </div>
             )}
@@ -802,9 +819,9 @@ instructions.push(spl_token::instruction::transfer(...));`}
         <div className="grid md:grid-cols-2 gap-4">
           <Link
             href="/docs/features"
-            className="group block p-4 rounded-lg bg-gray-900 border border-gray-800 hover:border-indigo-500 hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="group block p-4 rounded-lg bg-gray-900 border border-gray-800 hover:border-offivex-purple hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-offivex-purple"
           >
-            <h4 className="font-semibold text-indigo-400 mb-1 group-hover:translate-x-1 transition-transform">
+            <h4 className="font-semibold text-offivex-purple-light mb-1 group-hover:translate-x-1 transition-transform">
               Complete Features
             </h4>
             <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">

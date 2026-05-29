@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { api, ApiError } from "@/lib/api";
 import { Wallet } from "@/lib/types";
 import { useToast } from "@/components/ui/ToastProvider";
+import { HelpTooltip } from "@/components/ui/HelpTooltip";
 
 type TradeDirection = "buy" | "sell";
 
@@ -172,21 +173,35 @@ export default function TradePage() {
 
           {/* Slippage */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="flex items-center text-sm font-medium text-gray-300 mb-2">
               Slippage Tolerance (%)
+              <HelpTooltip label="Slippage help">
+                Max acceptable price move between quote and execution. Too low =
+                trade may revert on price drift (frequent on volatile memes);
+                too high = MEV bots can sandwich you for the difference. 0.5–3%
+                covers most stable swaps; 5–10% is needed for thin pools.
+              </HelpTooltip>
             </label>
             <div className="flex gap-3">
-              {["1", "3", "5", "10"].map((val) => (
+              {[
+                { val: "0.5", hint: "Safe" },
+                { val: "1", hint: "Normal" },
+                { val: "5", hint: "Risky" },
+              ].map(({ val, hint }) => (
                 <button
                   key={val}
                   onClick={() => setSlippage(val)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex flex-col items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     slippage === val
                       ? "bg-indigo-600 text-white"
                       : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                   }`}
+                  title={`${val}% — ${hint}`}
                 >
-                  {val}%
+                  <span>{val}%</span>
+                  <span className="text-[10px] opacity-70 uppercase tracking-wider">
+                    {hint}
+                  </span>
                 </button>
               ))}
               <input
@@ -198,6 +213,12 @@ export default function TradePage() {
                 placeholder="Custom"
               />
             </div>
+            {parseFloat(slippage) > 10 && (
+              <p className="mt-2 text-xs text-yellow-400">
+                ⚠ Slippage &gt; 10% leaves you exposed to MEV sandwich attacks.
+                Only use this for very thin liquidity pools.
+              </p>
+            )}
           </div>
 
           {/* Info Box */}

@@ -1,26 +1,23 @@
-# Cresus Production Reverse Proxy
+# Offivex Production Reverse Proxy
 # Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
 #
 # Usage:
 #   1. Install Caddy: https://caddyserver.com/docs/install
-#   2. Replace "cresus.yourdomain.com" with your actual domain
+#   2. Replace "offivex.yourdomain.com" with your actual domain
 #   3. Run: caddy run --config Caddyfile
 #
 # For local development with self-signed cert:
 #   caddy run --config Caddyfile --adapter caddyfile
+#
+# NOTE — header definitions live in `docker/caddy-snippets.conf` so the
+# docker-compose deployment and this manual config never drift.
 
-cresus.yourdomain.com {
+import docker/caddy-snippets.conf
+
+offivex.yourdomain.com {
 	# TLS is automatic — Caddy handles Let's Encrypt certificates
 
-	# Security headers
-	header {
-		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
-		X-XSS-Protection "1; mode=block"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		-Server
-	}
+	import security_headers
 
 	# Frontend (Next.js on port 3000)
 	handle {
@@ -49,7 +46,7 @@ cresus.yourdomain.com {
 
 	# Access log
 	log {
-		output file /var/log/caddy/cresus-access.log {
+		output file /var/log/caddy/offivex-access.log {
 			roll_size 50mb
 			roll_keep 10
 		}

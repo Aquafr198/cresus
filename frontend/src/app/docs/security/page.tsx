@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { JSX } from "react";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
@@ -115,7 +116,7 @@ export default function SecurityPage() {
       title: "Seed Phrase Management",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-offivex-purple-light flex items-center gap-2">
             <KeyIcon className="w-6 h-6" />
             What is the Seed Phrase?
           </h3>
@@ -124,7 +125,7 @@ export default function SecurityPage() {
             <strong>BIP39</strong> standard:
           </p>
           <div className="bg-gray-900 rounded-lg p-4 text-center">
-            <code className="text-indigo-300 text-sm">
+            <code className="text-offivex-purple-light text-sm">
               abandon ability able about above absent
               <br />
               absorb abstract absurd abuse access accident
@@ -272,7 +273,7 @@ POST /wallets
 # 4. Send 0.01 SOL test
 
 # 5. COMPLETELY delete DB
-rm data/cresus.db
+rm data/offivex.db
 
 # 6. Restart backend
 
@@ -299,7 +300,7 @@ GET /wallets
       title: "Password Security",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-offivex-purple-light flex items-center gap-2">
             <LockClosedIcon className="w-6 h-6" />
             Golden Rules
           </h3>
@@ -413,10 +414,10 @@ GET /wallets
           </h3>
           <div className="bg-gray-900 rounded-lg p-4">
             <p className="text-gray-300 mb-2">
-              Cresus limits login attempts:
+              Offivex limits login attempts:
             </p>
             <div className="bg-gray-800 rounded p-3 font-mono text-sm">
-              <code className="text-indigo-300">
+              <code className="text-offivex-purple-light">
                 /auth/unlock: 5 attempts / 60 seconds
               </code>
             </div>
@@ -432,7 +433,7 @@ GET /wallets
       title: "Database Backup",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-offivex-purple-light flex items-center gap-2">
             <CircleStackIcon className="w-6 h-6" />
             Why?
           </h3>
@@ -458,18 +459,18 @@ GET /wallets
             <div className="bg-gray-950 rounded p-3 font-mono text-xs overflow-x-auto">
               <pre className="text-gray-300">
                 {`#!/bin/bash
-# save as: backup-cresus.sh
+# save as: backup-offivex.sh
 
-BACKUP_DIR="$HOME/cresus-backups"
-DB_PATH="$HOME/cresus/data/cresus.db"
+BACKUP_DIR="$HOME/offivex-backups"
+DB_PATH="$HOME/offivex/data/offivex.db"
 DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/cresus_$DATE.db"
+BACKUP_FILE="$BACKUP_DIR/offivex_$DATE.db"
 
 # Create backup directory
 mkdir -p "$BACKUP_DIR"
 
 # Stop server (optional but recommended)
-# killall cresus-server
+# killall offivex-server
 
 # Copy DB
 cp "$DB_PATH" "$BACKUP_FILE"
@@ -478,12 +479,12 @@ cp "$DB_PATH" "$BACKUP_FILE"
 gzip "$BACKUP_FILE"
 
 # Keep only last 7 backups
-ls -t "$BACKUP_DIR"/cresus_*.db.gz | tail -n +8 | xargs rm -f
+ls -t "$BACKUP_DIR"/offivex_*.db.gz | tail -n +8 | xargs rm -f
 
 echo "✅ Backup created: \${BACKUP_FILE}.gz"
 
 # Restart server
-# cd ~/cresus/backend && cargo run -p cresus-server &`}
+# cd ~/offivex/backend && cargo run -p offivex-server &`}
               </pre>
             </div>
           </div>
@@ -498,7 +499,7 @@ echo "✅ Backup created: \${BACKUP_FILE}.gz"
 crontab -e
 
 # Add daily backup at 3 AM
-0 3 * * * /path/to/backup-cresus.sh`}
+0 3 * * * /path/to/backup-offivex.sh`}
               </pre>
             </div>
           </div>
@@ -511,16 +512,16 @@ crontab -e
               <pre className="text-gray-300">
                 {`#!/bin/bash
 # Stop server
-killall cresus-server
+killall offivex-server
 
 # Decompress backup
-gunzip cresus_20240315_030000.db.gz
+gunzip offivex_20240315_030000.db.gz
 
 # Replace DB
-cp cresus_20240315_030000.db ~/cresus/data/cresus.db
+cp offivex_20240315_030000.db ~/offivex/data/offivex.db
 
 # Restart
-cd ~/cresus/backend && cargo run -p cresus-server`}
+cd ~/offivex/backend && cargo run -p offivex-server`}
               </pre>
             </div>
           </div>
@@ -593,7 +594,7 @@ Argon2::new(
                   Scenario:
                 </span>
                 <span className="text-gray-300 text-sm ml-2">
-                  Attacker steals cresus.db
+                  Attacker steals offivex.db
                 </span>
               </div>
               <div className="space-y-2">
@@ -615,7 +616,7 @@ Argon2::new(
                     <code className="text-gray-300">
                       # Strict permissions
                       <br />
-                      chmod 600 data/cresus.db
+                      chmod 600 data/offivex.db
                     </code>
                   </div>
                 </div>
@@ -672,7 +673,7 @@ Argon2::new(
                   <ul className="text-xs text-gray-300 space-y-1">
                     <li className="flex items-center gap-1">
                       <CheckCircleIcon className="w-3 h-3" />
-                      Cresus is local (localhost:3000)
+                      Offivex is local (localhost:3000)
                     </li>
                     <li className="flex items-center gap-1">
                       <CheckCircleIcon className="w-3 h-3" />
@@ -686,7 +687,7 @@ Argon2::new(
                 </div>
                 <div className="bg-blue-900/20 border border-blue-800 rounded p-3">
                   <p className="text-blue-400 font-semibold text-sm">
-                    Golden rule: Seed phrase = enter ONLY in local Cresus
+                    Golden rule: Seed phrase = enter ONLY in local Offivex
                   </p>
                 </div>
               </div>
@@ -711,7 +712,7 @@ Argon2::new(
                   STEP 1: Act FAST
                 </h5>
                 <ol className="list-decimal list-inside text-xs text-gray-300 space-y-1">
-                  <li>Open Cresus</li>
+                  <li>Open Offivex</li>
                   <li>Unlock with old password</li>
                   <li>View seed phrase: GET /auth/seed-phrase</li>
                   <li>Note the 12 words</li>
@@ -732,7 +733,7 @@ Argon2::new(
                   STEP 3: Restore with New Password
                 </h5>
                 <ol className="list-decimal list-inside text-xs text-gray-300 space-y-1">
-                  <li>Delete cresus.db</li>
+                  <li>Delete offivex.db</li>
                   <li>
                     Restore: POST /auth/restore with seed phrase + new
                     password
@@ -847,7 +848,7 @@ Argon2::new(
             <h4 className="text-blue-400 font-semibold mb-3">Daily</h4>
             <div className="space-y-2">
               {[
-                "Lock Cresus when inactive",
+                "Lock Offivex when inactive",
                 "Weekly backup verified",
                 "No screenshots with seed phrase",
                 "Browser up to date",
@@ -895,7 +896,7 @@ Argon2::new(
       title: "Resources & Support",
       content: (
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-indigo-400">
+          <h3 className="text-xl font-semibold text-offivex-purple-light">
             Technical Documentation
           </h3>
           <div className="space-y-2">
@@ -994,13 +995,13 @@ Argon2::new(
               <div className="bg-gray-900 rounded p-2">
                 <span className="text-gray-400">Email:</span>
                 <span className="text-gray-300 ml-2">
-                  security@cresus.io (if configured)
+                  security@offivex.io (if configured)
                 </span>
               </div>
               <div className="bg-gray-900 rounded p-2">
                 <span className="text-gray-400">GitHub Security:</span>
                 <a
-                  href="https://github.com/your-repo/cresus/security"
+                  href="https://github.com/your-repo/offivex/security"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-400 hover:text-blue-300 ml-2 underline inline-flex items-center gap-1"
@@ -1075,11 +1076,11 @@ Argon2::new(
   ];
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-6 pt-12 pb-24">
       <div className="mb-8">
         <Link
           href="/docs"
-          className="inline-flex items-center text-indigo-400 hover:text-indigo-300 mb-4 transition-all hover:gap-3 gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg px-2 py-1"
+          className="inline-flex items-center text-offivex-purple-light hover:text-offivex-purple-light mb-4 transition-all hover:gap-3 gap-2 focus:outline-none focus:ring-2 focus:ring-offivex-purple rounded-lg px-2 py-1"
         >
           <ArrowLeftIcon className="w-4 h-4" />
           Back to Documentation
@@ -1092,6 +1093,23 @@ Argon2::new(
         </p>
       </div>
 
+      <div className="mb-8 p-4 rounded-lg border border-offivex-purple/30 bg-offivex-purple/[0.05]">
+        <p className="text-sm text-gray-300 leading-relaxed">
+          <strong className="text-offivex-purple-light">Looking for the short version?</strong>{" "}
+          The{" "}
+          <Link
+            href="/docs/feature/security"
+            className="text-offivex-purple-light underline"
+          >
+            Security feature page
+          </Link>{" "}
+          is a one-page summary covering master password rules, seed phrase
+          handling, auto-lock, export, rotation, and disaster recovery — read
+          that first, come back here for the long-form details and threat
+          scenarios.
+        </p>
+      </div>
+
       <div className="space-y-3">
         {sections.map((section) => (
           <div
@@ -1100,7 +1118,7 @@ Argon2::new(
           >
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-offivex-purple"
             >
               <h2 className="text-xl font-semibold text-left">
                 {section.title}
@@ -1120,7 +1138,7 @@ Argon2::new(
               </svg>
             </button>
             {openSection === section.id && (
-              <div className="px-6 py-4 border-t border-gray-800 bg-gray-900/50 animate-in slide-in-from-top-2 duration-300">
+              <div className="px-6 py-4 border-t border-gray-800 bg-gray-900/50">
                 {section.content}
               </div>
             )}
@@ -1145,9 +1163,9 @@ Argon2::new(
           </Link>
           <Link
             href="/docs/features"
-            className="group block p-4 rounded-lg bg-gray-900 border border-gray-800 hover:border-indigo-500 hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="group block p-4 rounded-lg bg-gray-900 border border-gray-800 hover:border-offivex-purple hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-offivex-purple"
           >
-            <h4 className="font-semibold text-indigo-400 mb-1 group-hover:translate-x-1 transition-transform">
+            <h4 className="font-semibold text-offivex-purple-light mb-1 group-hover:translate-x-1 transition-transform">
               Complete Features
             </h4>
             <p className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors">

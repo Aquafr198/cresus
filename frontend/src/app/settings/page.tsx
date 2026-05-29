@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { api, ApiError } from "@/lib/api";
 import { RpcEndpoint } from "@/lib/types";
+import { KeybindRecorder } from "@/components/settings/KeybindRecorder";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface HealthResult {
   id: string;
@@ -70,12 +72,22 @@ export default function SettingsPage() {
     }
   };
 
+  // Confirmation state for RPC deletion. Deleting the last active endpoint
+  // silently kills every on-chain operation (mints, bundles, distributions
+  // all fail with "no active RPC endpoints"), so we both confirm AND warn
+  // explicitly when the row being removed is the last active one.
+  const [confirmDeleteRpc, setConfirmDeleteRpc] = useState<RpcEndpoint | null>(
+    null,
+  );
+
   const handleDelete = async (id: string) => {
     try {
       await api.rpc.delete(id);
       fetchEndpoints();
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
+    } finally {
+      setConfirmDeleteRpc(null);
     }
   };
 
@@ -106,7 +118,33 @@ export default function SettingsPage() {
     <div>
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
 
+      {confirmDeleteRpc && (
+        <ConfirmDialog
+          title="Delete RPC endpoint"
+          message={
+            (() => {
+              const activeCount = endpoints.filter((e) => Boolean(e.is_active)).length;
+              const isLastActive =
+                Boolean(confirmDeleteRpc.is_active) && activeCount <= 1;
+              const base =
+                `Permanently remove "${confirmDeleteRpc.name}"?\n` +
+                `URL: ${confirmDeleteRpc.url}`;
+              return isLastActive
+                ? `⚠️ THIS IS YOUR LAST ACTIVE ENDPOINT.\n\nRemoving it will silently kill every on-chain operation (mints, bundles, distributions all 500 with "no active RPC endpoints"). Add another active endpoint BEFORE deleting this one.\n\n${base}`
+                : base;
+            })()
+          }
+          variant="danger"
+          confirmText="Delete endpoint"
+          onConfirm={() => void handleDelete(confirmDeleteRpc.id)}
+          onCancel={() => setConfirmDeleteRpc(null)}
+        />
+      )}
+
       <div className="space-y-6">
+        {/* Quick-sell keybinds — global hotkeys for instant exit. */}
+        <KeybindRecorder />
+
         {/* RPC Endpoints Section */}
         <section className="bg-gray-900 rounded-lg border border-gray-800 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -277,7 +315,7 @@ export default function SettingsPage() {
                       {ep.is_active ? "Active" : "Inactive"}
                     </button>
                     <button
-                      onClick={() => handleDelete(ep.id)}
+                      onClick={() => setConfirmDeleteRpc(ep)}
                       className="px-2 py-1 text-xs text-red-400 hover:bg-red-900/30 rounded transition-colors"
                     >
                       Delete

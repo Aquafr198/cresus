@@ -107,17 +107,25 @@ export default function BumperPage() {
     }
   };
 
+  // Per-task stop guard — same rationale as the volume page (no double-stop,
+  // re-fetch before celebrating).
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
+
   const handleStop = async (taskId: string) => {
+    if (stoppingId) return;
+    setStoppingId(taskId);
     try {
       await api.trading.bumper.stop(taskId);
+      await fetchData();
       toast.success("Bumper bot stopped");
-      fetchData();
     } catch (e) {
       if (e instanceof ApiError) {
         toast.error(e.message);
       } else {
         toast.error("Failed to stop bot");
       }
+    } finally {
+      setStoppingId(null);
     }
   };
 
@@ -210,9 +218,10 @@ export default function BumperPage() {
                   {task.status === "running" ? (
                     <button
                       onClick={() => handleStop(task.id)}
-                      className="px-4 py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 text-red-400 transition-colors text-sm"
+                      disabled={stoppingId === task.id}
+                      className="px-4 py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed text-red-400 transition-colors text-sm"
                     >
-                      Stop
+                      {stoppingId === task.id ? "Stopping…" : "Stop"}
                     </button>
                   ) : (
                     <button

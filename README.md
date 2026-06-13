@@ -1,193 +1,273 @@
 <p align="center">
   <h1 align="center">Offivex</h1>
   <p align="center">
-    Self-hosted Solana token launchpad & DeFi toolkit
-    <br />
-    <strong>Launch tokens, manage wallets, automate trading — all from your own machine.</strong>
+    Production-grade Solana memecoin launchpad — anti-rug stack, atomic Jito bundles, anti-bubble distribution
   </p>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/Next.js_14-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind" />
-  <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
-  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Rust-1.83-000000?style=for-the-badge&logo=rust&logoColor=white" alt="Rust" />
+  <img src="https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Tailwind_4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/discord.js_14-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="discord.js" />
   <img src="https://img.shields.io/badge/Solana-9945FF?style=for-the-badge&logo=solana&logoColor=white" alt="Solana" />
+  <img src="https://img.shields.io/badge/Jito-FF6B35?style=for-the-badge" alt="Jito" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="MIT" />
 </p>
 
 ---
 
-## Overview
+## What this is
 
-Offivex is a **fully self-hosted** Solana platform that gives you complete control over token launches, wallet management, and on-chain trading. No third-party dashboards, no API keys shared with SaaS providers — everything runs on your infrastructure.
+Offivex is a **full-stack Solana memecoin launchpad** built as a paid SaaS. One launch
+is a single atomic Jito bundle that mints the token, builds the OpenBook market, opens
+a Raydium pool, distributes supply across hundreds of wallets without leaving a
+BubbleMap-traceable graph, and burns the LP — all in one slot.
 
-### Tech Stack
+Beyond the launcher, the repo ships a complete SaaS layer:
+- HD wallet vault with Argon2id + AES-GCM + zeroize
+- Subscription billing with HD-derived Solana invoice addresses
+- Admin panel + apply flow + audit log
+- Companion Discord community bot (tickets, moderation, giveaways)
 
-| Layer | Technology |
-|-------|-----------|
-| **Backend** | Rust (Axum, Tokio, tokio-rusqlite) |
-| **Frontend** | TypeScript, Next.js 14, React 18, Tailwind CSS |
-| **Database** | SQLite with automatic migrations |
-| **Cryptography** | AES-256-GCM, Argon2 KDF, BIP-39 mnemonics |
-| **Deployment** | Docker Compose + Caddy (auto-TLS) |
-| **Blockchain** | Solana (devnet & mainnet), Jupiter, Jito, Raydium, Pump.fun |
+This README documents the architecture and engineering decisions. The repo is shared
+as a portfolio piece — the code, tests, and infrastructure scripts are all real.
 
 ---
 
-## Features
+## Why this exists
 
-### Wallet Management
-- Create and manage multiple Solana wallets with hierarchical sub-wallets
-- Private keys encrypted at rest with AES-256-GCM, locked behind a master password
-- BIP-39 seed phrase backup and restore
-- Wallet groups, balance checking, SOL transfers, and key export
+Existing Solana launchpads either:
+- Lock you into their dashboard (no self-host, no key custody), or
+- Ship a thin wrapper around `spl-token` with no anti-rug / anti-bubble / MEV protection.
 
-### Token Operations
-- Mint SPL tokens with full metadata (name, symbol, decimals, supply)
-- Clone existing token metadata for quick launches
-- Vanity address generation for custom mint addresses
-- IPFS metadata pinning via Pinata
-
-### Bundle Launch
-- Multi-wallet coordinated token launches with Jito bundles
-- Liquidity pool creation on Raydium + market creation on OpenBook
-- MEV-protected transaction submission
-- Automated fee collection from bundle wallets
-
-### Pump.fun Integration
-- Launch tokens directly on Pump.fun bonding curve
-- Buy and sell on active bonding curves
-- Full launch history tracking
-
-### Trading
-- **Manual Trade** — Swap any SPL token via Jupiter aggregator with configurable slippage
-- **Volume Bot** — Automated buy/sell cycles across multiple wallets
-- **Bumper Bot** — Price floor maintenance with configurable thresholds (Birdeye + Jupiter price feeds)
-- **Wallet Warmer** — Generate transaction history on wallets before use
-
-### Distribution
-- Anti-bubble-map token distribution with timing and amount randomization
-- Multi-hop transfers via intermediate wallets
-- Layered batch execution with configurable delays
-- Automatic resume of stalled distributions after server restart
-
-### Monitoring & Ops
-- Real-time transaction monitor via WebSocket
-- Prometheus metrics endpoint (`/api/v1/metrics`)
-- Automated daily database backups with retention policy
-- Off-site backup support (S3, rclone, MinIO)
-- Audit logging for all security-sensitive operations
-- Dead letter queue for failed operations with retry/dismiss
-- Health check endpoints with detailed system status
+Offivex is the alternative: every defensive measure that retail traders look for via
+RugCheck, DEXTools, and BubbleMaps is built directly into the launch pipeline, and the
+operator keeps full key custody on their own infra.
 
 ---
 
 ## Architecture
 
 ```
-Offivex/
-├── backend/                        # Rust workspace
-│   ├── crates/
-│   │   ├── Offivex-server/          # Axum HTTP server, auth, routing, metrics, scheduler
-│   │   ├── Offivex-api/             # Request handlers, validation, audit
-│   │   ├── Offivex-core/            # Business logic — trading, bundles, wallets, distribution
-│   │   ├── Offivex-db/              # SQLite — migrations, repos, backups
-│   │   └── Offivex-crypto/          # AES-256-GCM, Argon2, BIP-39, secure memory
-│   └── Cargo.toml                  # Workspace manifest
-│
-├── frontend/                       # Next.js 14 application
-│   ├── src/app/                    # 22 page routes
-│   ├── src/components/             # React components (UI, layout, auth)
-│   └── src/lib/api.ts              # Typed API client
-│
-├── docker-compose.yml              # Full stack: backend + frontend + Caddy
-├── docker/Caddyfile                # Reverse proxy config for Docker
-├── Caddyfile                       # Standalone reverse proxy config
-└── .env.docker                     # Docker environment template
+                      ┌─────────────────────────────────────┐
+                      │            Next.js 16 UI            │
+                      │  /launch · /wallets · /distribution │
+                      │  /admin  · /pay     · /docs         │
+                      └────────────────┬────────────────────┘
+                                       │ typed API (axum)
+                                       ▼
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │                       offivex-server (axum + tokio)                   │
+   │                                                                       │
+   │  middleware: api_key │ active_plan │ require_unlocked                 │
+   │  scheduler: auto-lock │ payment_watcher │ backup │ dlq retry          │
+   └───┬────────────────────┬────────────────────┬─────────────────────┬───┘
+       │                    │                    │                     │
+       ▼                    ▼                    ▼                     ▼
+ ┌──────────┐         ┌─────────────┐      ┌────────────┐       ┌──────────┐
+ │ offivex- │         │  offivex-   │      │  offivex-  │       │ offivex- │
+ │   api    │         │    core     │      │    db      │       │  crypto  │
+ │          │         │             │      │            │       │          │
+ │ handlers │         │  bundle/    │      │  SQLite    │       │ AES-GCM  │
+ │ validate │         │  trading/   │      │  WAL +     │       │ Argon2id │
+ │ audit    │         │  monitor/   │      │  29 migs   │       │ BIP-39   │
+ │ DTOs     │         │  payment/   │      │  9 repos   │       │ zeroize  │
+ │          │         │  wallet/    │      │            │       │          │
+ │          │         │  distribution│     │            │       │          │
+ └──────────┘         └──────┬──────┘      └────────────┘       └──────────┘
+                             │
+                             ▼
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │                          Solana mainnet                               │
+   │  Jito (bundle submit) · Raydium AMM/CLMM · OpenBook · Pump.fun · SPL  │
+   └───────────────────────────────────────────────────────────────────────┘
+
+   ┌───────────────────────────────────────────────────────────────────────┐
+   │                  offivexbot (discord.js v14)                          │
+   │  tickets · giveaways · moderation · canvas banners · PnL pollers      │
+   │  schedulers: 48h ticket auto-close · monthly DB purge                 │
+   └───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Quick Start
+## Highlight features
 
-### Docker (recommended)
+### Anti-rug stack (built into every launch)
+
+| Defense | How |
+|---|---|
+| Mint authority revoked | `set_authority` instruction baked into the launch bundle (slot 0) |
+| Freeze authority OFF | Set to `None` at `initialize_mint` — token can never be frozen by the creator |
+| LP burn atomic | Computed `sqrt(coin · pc) - MINIMUM_LIQUIDITY` with 10k-lamport safety margin, burned in the same Jito bundle as pool initialization |
+| Treasury wallet boot-fail-fast | Backend refuses to boot if `OFFIVEX_TREASURY_SEED_PHRASE` is invalid or test mnemonic on mainnet |
+| CORS allowlist | Empty / wildcard / `http://` rejected at boot on mainnet |
+
+### Anti-bubble distribution
+
+| Strategy | What it breaks |
+|---|---|
+| `Direct` | Single-hop transfers from source to N targets (baseline) |
+| `MultiHop { hops }` | SOL passes through 1+ intermediate relay wallets per target. Breaks BubbleMaps' direct-edge attribution |
+| `Layered { batch_size, batch_delay_ms }` | Targets receive in randomized batches with jittered delays. Defeats time-clustering heuristics |
+| `AmountVariation { max_deviation_pct }` | Per-wallet amount randomized ±N% from the mean. Defeats sum-matching heuristics |
+| `TimingVariation { min/max_delay_ms }` | Per-transfer delay jitter. Defeats sequential-slot pattern detection |
+| Atomic claim | `UPDATE … WHERE id=? AND status='planned'` checks affected rows — guarantees no double-execution on concurrent POSTs |
+
+### HD wallet vault
+
+- AES-256-GCM per record (12-byte IV from `OsRng`)
+- Master key derived from password with **Argon2id (64 MiB / 3 iter / 1 parallel)**
+- BIP-39 mnemonic backup with optional passphrase
+- SLIP-0010 ed25519 derivation for invoice addresses (`m/44'/501'/N'/0'`)
+- `SecretBytes` zeroize-on-drop wrapper across the codebase
+- Mid-flight key safety: every task re-reads the master key under RwLock (no pre-cloned `SecretBytes`), so password rotation never tears running operations
+- Auto-lock with TOCTOU re-check (last-activity verified after acquiring the write lock)
+
+### Atomic Jito bundle launch (single slot)
+
+A "Bundle Launch" is one Jito bundle containing, in order:
+1. Buy SOL → token at small slippage (creator priming)
+2. `InitializeMint` (decimals = 6, supply = 1B)
+3. `OpenBook` market creation
+4. Raydium AMM v4 `initialize2` (LP minted to operator)
+5. `set_authority(mint, None)` (revoke)
+6. `Burn(LP - safety_margin)` (rug-proof)
+7. N anti-bubble distribution transfers
+
+If any one tx in the bundle reverts, the entire bundle is dropped — no half-launch state.
+
+### SaaS billing layer
+
+- Subscription plans cached in-memory; `POST /admin/plans/reload` busts cache via audit-logged endpoint
+- Per-subscription HD-derived invoice address (no key reuse between users)
+- Solana payment watcher with **u64-saturating tolerance math** + atomic claim race fix
+- Reveal-key flow with 24h TTL + one-shot NULL-on-fetch
+- Apply flow (waitlist) with grant/revoke/rotate admin actions
+
+### Discord community bot ([`offivexbot/`](offivexbot/))
+
+- Brand-consistent canvas banners (1024×320 PNG) cached + emitted above every embed
+- 5 ticket categories (API & Auth / Billing / Bug Report / Launch Support / Other)
+- 48h ticket auto-close scheduler + DM notification
+- Monthly DB purge (infractions >90d, closed tickets >1y, ended-giveaway participants)
+- Verification flow with `customId` scoping (prevents cross-user button interaction)
+- Giveaways, presence-based rewards, Nitro boost detection
+- Full English (translated from FR in a dedicated pass)
+
+### Security audit + hardening (senior dev review)
+
+A multi-agent senior review identified 3 CRITICAL + 12 MAJOR + 8 MEDIUM findings. All
+shipped: distribution race fix via SQL atomic claim, MEK rotation safety in quick-sell,
+require_unlocked split on task routes, identifier whitelist in DB migration helper,
+LIST_ALL_LIMIT cap on every unbounded repo query, etc. The full breakdown is in the
+commit history.
+
+A pre-commit hook (`.githooks/pre-commit`) blocks committing `.env`, BIP39 phrases,
+Solana private keys, and template-leak patterns.
+
+---
+
+## Tech stack
+
+| Layer | Tech | Role |
+|---|---|---|
+| **Backend** | Rust 1.83, axum, tokio, tokio-rusqlite | HTTP API + scheduler + Solana ops |
+| **Workspace** | 5 crates (`offivex-server` / `-api` / `-core` / `-db` / `-crypto`) | Layered separation, ~50k LOC |
+| **Frontend** | Next.js 16 (App Router), Tailwind 4 `@theme`, SWR | Typed API client, AuthGate state machine |
+| **DB** | SQLite WAL, 29 migrations, 9 repos | Single-file, backup-friendly, fast |
+| **Crypto** | AES-256-GCM, Argon2id, BIP-39, ed25519 | All key material in `SecretBytes` |
+| **On-chain** | `solana-sdk` 2.1, Raydium AMM v4 + CLMM, OpenBook, Jupiter v6, Jito | Mainnet + devnet |
+| **Bot** | discord.js v14, @napi-rs/canvas, better-sqlite3 | Schedulers + canvas-rendered embeds |
+| **Deploy** | Docker Compose + Caddy (auto-TLS) | One-command stand-up |
+
+---
+
+## Quick start
 
 ```bash
-git clone https://github.com/Aquafr198/Offivex.git
-cd Offivex
-cp .env.docker .env
-# Edit .env — set your DOMAIN and API keys
+git clone https://github.com/Aquafr198/offivex.git
+cd offivex
+cp .env.docker .env       # fill DOMAIN + RPC endpoints + treasury seed
 docker compose up -d
 ```
 
-Three containers start: **backend** (Rust, port 3001), **frontend** (Next.js, port 3000), **caddy** (reverse proxy, ports 80/443 with auto-TLS).
+Three containers: backend (Rust, :3001) + frontend (Next.js, :3000) + caddy (:80/443
+with Let's Encrypt). Open `https://<DOMAIN>` and set the master password on first
+launch.
 
-Open `https://localhost` and set your master password on first launch.
+For manual / non-Docker setup, see [`backend/.env.example`](backend/.env.example) +
+[`frontend/`](frontend/) for the per-component instructions.
 
-### Manual Setup
+---
 
-**Prerequisites:** Rust 1.83+, Node.js 20+
+## Project layout
 
-```bash
-# 1. Backend
-cd backend
-cp .env.example .env        # Configure your RPC endpoints and API keys
-cargo build --release
-./target/release/Offivex      # Starts on http://127.0.0.1:3001
-
-# 2. Frontend (separate terminal)
-cd frontend
-npm install
-npm run build
-npm start                    # Starts on http://127.0.0.1:3000
 ```
-
----
-
-## Configuration
-
-All settings are managed via environment variables. See [`backend/.env.example`](backend/.env.example) for the complete reference.
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OFFIVEX_SOLANA_CLUSTER` | `devnet` | Solana cluster: `devnet` or `mainnet` |
-| `SOLANA_RPC_MAINNET` | Public RPC | Mainnet RPC endpoint (paid RPC recommended) |
-| `SOLANA_RPC_DEVNET` | Public RPC | Devnet RPC endpoint |
-| `PINATA_API_KEY` | — | Pinata API key for IPFS metadata pinning |
-| `BIRDEYE_API_KEY` | — | Birdeye API key for price feeds |
-| `JITO_TIP_LAMPORTS` | `10000` | Jito bundle tip amount |
-| `DOMAIN` | `localhost` | Domain for Caddy auto-TLS (Docker only) |
-| `DEV_MODE` | `false` | Relaxes security checks — **never use in production** |
-
----
-
-## Security
-
-| Measure | Details |
-|---------|---------|
-| **Encryption at rest** | All private keys encrypted with AES-256-GCM |
-| **Key derivation** | Master password hashed with Argon2 |
-| **Memory safety** | Master key exists only in memory; zeroed on lock |
-| **Auto-lock** | Configurable inactivity timeout |
-| **Rate limiting** | Auth: 5 req/min, API: 100 req/min per IP |
-| **Audit log** | Tracks wallet creation, unlocks, transfers, key exports |
-| **Production guards** | Warns on localhost CORS, 0.0.0.0 binding, or DEV_MODE on mainnet |
-| **Seed phrase** | BIP-39 mnemonic for wallet recovery |
+offivex/
+├── backend/
+│   └── crates/
+│       ├── offivex-server/      Axum HTTP server, auth, middleware, scheduler
+│       ├── offivex-api/         Handlers · DTOs · validation · audit
+│       ├── offivex-core/        Bundle, trading, monitor, payment, wallet, distribution
+│       ├── offivex-db/          SQLite migrations + repos + backup
+│       └── offivex-crypto/      AES-GCM, Argon2id, BIP-39, secure-mem
+├── frontend/
+│   └── src/
+│       ├── app/                 22 page routes (App Router)
+│       ├── components/          UI, launch widgets, admin modals, ConfirmDialog
+│       └── lib/                 Typed API client, SWR helpers, keybinds
+├── offivexbot/
+│   └── src/
+│       ├── commands/            slash + button commands
+│       ├── events/              guildMember, message, interaction, presence
+│       ├── scheduler/           48h ticket auto-close · monthly DB purge
+│       └── utils/               brand · bannerGenerator · pnlImageGenerator
+├── docker-compose.yml + Caddyfile
+├── .githooks/pre-commit         Blocks .env / seed / private-key leaks
+├── RUNBOOK.md · SECURITY.md     Ops + security docs
+└── scripts/                     Local dev helpers
+```
 
 ---
 
 ## Tests
 
 ```bash
-cd backend
-cargo test --workspace            # 81 unit & integration tests
-cargo test -- --ignored           # Devnet integration tests (requires network)
+# Backend
+cd backend && cargo test --workspace        # 81 unit + integration tests
+cargo test -- --ignored                     # devnet integration (needs network)
+
+# Bot
+cd offivexbot && npm test
 ```
+
+---
+
+## Status
+
+**Production-tested** — the launcher has shipped tokens on Solana mainnet through the
+full anti-rug + anti-bubble pipeline. The SaaS layer (auth, billing, payment watcher,
+admin panel) has been senior-audited and hardened. The Discord bot ships with 14
+schedulers + handlers wired for a live community.
+
+Repo is shared as a portfolio piece — see commit history for the senior-review fix
+pass (`Full platform release` commit `cfa7dbf` covers the rebrand + audit pass).
 
 ---
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — fork, study, adapt with attribution.
+
+---
+
+## Author
+
+Built by [@Aquafr198](https://github.com/Aquafr198). Code architecture + review
+iterated with `Claude Code (Opus 4.7)` over multiple sessions. The strategy,
+contracts, anti-rug stack, anti-bubble heuristics, and Discord bot are real and have
+shipped on mainnet.
+
+If you fork this and ship something interesting, ping me — would love to see it.
